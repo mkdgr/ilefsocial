@@ -129,10 +129,10 @@
   const cv = $('#cv');
   const ctx = cv.getContext('2d');
   let playing = null; // { start, dur, rec }
-  function renderTo(c, fmt, t, tpl = tplOf(state.tplId), data, slide) {
+  function renderTo(c, fmt, t, tpl = tplOf(state.tplId), data, slide, hits) {
     if (c.width !== fmt.w) c.width = fmt.w;
     if (c.height !== fmt.h) c.height = fmt.h;
-    Studio.render(c.getContext('2d'), { tpl, data: data || dataOf(tpl), layout: state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage });
+    return Studio.render(c.getContext('2d'), { tpl, hits, data: data || dataOf(tpl), layout: state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage });
   }
   // Önizleme canvas'ını sahne kutusuna sığdır
   const stageBox = $('#stageBox');
@@ -141,7 +141,9 @@
     const cs = getComputedStyle(stageBox);
     const aw = stageBox.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const ah = stageBox.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-    const k = Math.max(0.05, Math.min(aw / fmt.w, ah / fmt.h));
+    // mobilde genişliğe göre sığdır (yükseklik ekranın %72'sini geçmesin)
+    const mobile = window.innerWidth <= 900;
+    const k = Math.max(0.05, mobile ? Math.min(aw / fmt.w, (window.innerHeight * 0.72) / fmt.h) : Math.min(aw / fmt.w, ah / fmt.h));
     cv.style.width = Math.floor(fmt.w * k) + 'px';
     cv.style.height = Math.floor(fmt.h * k) + 'px';
   }
@@ -151,7 +153,7 @@
   let raf = 0;
   function scheduleRender() {
     if (playing || raf) return;
-    raf = requestAnimationFrame(() => { raf = 0; renderTo(cv, fmtOf(state.fmtId), Infinity); drawSafe(); fitCanvas(); });
+    raf = requestAnimationFrame(() => { raf = 0; const hits = []; renderTo(cv, fmtOf(state.fmtId), Infinity, undefined, undefined, undefined, hits); drawSafe(); fitCanvas(); buildHits(hits); });
     scheduleShare();
   }
 
@@ -168,6 +170,111 @@
       const x = c.getContext('2d');
       x.clearRect(0, 0, c.width, c.height);
       x.drawImage(thumbSrc, 0, 0, c.width, c.height);
+    });
+  }
+
+  // ------------------------------------------------------------ Satır içi düzenleme
+  // Önizlemedeki her yazı/tarih/fotoğraf bölgesi dokunulabilir bir düğme olur; dokununca küçük düzenleyici açılır.
+  const hitLayer = $('#hitLayer'), ed = $('#inlineEd');
+  let edKey = null, lastHits = [];
+  const fieldOf = (key) => tplOf(state.tplId).fields.find((f) => f.key === key);
+  function buildHits(hits) {
+    lastHits = hits || [];
+    const fmt = fmtOf(state.fmtId);
+    hitLayer.innerHTML = '';
+    // aynı alanın birden çok parçası tek bölgede birleşir
+    const merged = new Map();
+    lastHits.forEach((h) => {
+      if (!fieldOf(h.key)) return;
+      const m = merged.get(h.key);
+      if (!m) merged.set(h.key, { ...h });
+      else { const x2 = Math.max(m.x + m.w, h.x + h.w), y2 = Math.max(m.y + m.h, h.y + h.h); m.x = Math.min(m.x, h.x); m.y = Math.min(m.y, h.y); m.w = x2 - m.x; m.h = y2 - m.y; }
+    });
+    // büyük bölgeler (fotoğraf) altta kalsın ki üstündeki yazılar tıklanabilsin
+    [...merged.values()].sort((a, b) => b.w * b.h - a.w * a.h).forEach((h) => {
+      const f = fieldOf(h.key);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = (f.type === 'image' ? 'img' : '') + (h.key === edKey ? ' active' : '');
+      b.style.left = (h.x / fmt.w) * 100 + '%'; b.style.top = (h.y / fmt.h) * 100 + '%';
+      b.style.width = (h.w / fmt.w) * 100 + '%'; b.style.height = (h.h / fmt.h) * 100 + '%';
+      b.title = f.label; b.setAttribute('aria-label', f.label + ' — düzenle');
+      b.onclick = (e) => { e.stopPropagation(); openEditor(h.key); };
+      hitLayer.appendChild(b);
+    });
+    hitLayer.hidden = !!playing;
+    if (edKey) placeEditor();
+  }
+  function placeEditor() {
+    if (window.innerWidth <= 900) { ed.style.left = ''; ed.style.top = ''; return; }
+    const fmt = fmtOf(state.fmtId), k = cv.clientWidth / fmt.w;
+    const h = lastHits.find((x) => x.key === edKey);
+    const wrap = $('#cvWrap'), box = $('#stageBox');
+    const ox = wrap.offsetLeft, oy = wrap.offsetTop;
+    let left = ox + (h ? h.x * k : 20), top = oy + (h ? (h.y + h.h) * k + 10 : 20);
+    const ew = ed.offsetWidth || 400, eh = ed.offsetHeight || 160;
+    left = Math.max(8, Math.min(left, box.clientWidth - ew - 8));
+    if (top + eh > box.clientHeight - 8 && h) top = Math.max(8, oy + h.y * k - eh - 10);
+    ed.style.left = left + 'px'; ed.style.top = Math.max(8, top) + 'px';
+  }
+  function setVal(key, v) { const d = dataOf(tplOf(state.tplId)); d[key] = v; saveState(); scheduleRender(); }
+  function openEditor(key) {
+    const f = fieldOf(key); if (!f) return;
+    const d = dataOf(tplOf(state.tplId));
+    edKey = key;
+    $('#ieLabel').textContent = f.label;
+    const body = $('#ieBody');
+    body.innerHTML = '';
+    if (f.type === 'image') {
+      body.innerHTML = `${d[key] ? `<img class="thumb" src="${d[key]}" alt="" />` : ''}
+        <div class="row"><label class="btnlike">${d[key] ? 'Fotoğrafı değiştir' : 'Fotoğraf seç'}<input type="file" accept="image/*" hidden /></label>${d[key] ? '<button type="button" class="link" data-rm>Kaldır</button>' : ''}</div>
+        ${d[key] ? `<div class="row">Yatay odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fx']}" data-k="${key}_fx" /></div><div class="row">Dikey odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fy']}" data-k="${key}_fy" /></div>` : ''}`;
+      body.querySelector('input[type=file]').onchange = async (e) => { const file = e.target.files[0]; if (!file) return; try { d[key] = await loadPhoto(file); d[key + '_fx'] = 0.5; d[key + '_fy'] = 0.5; } catch (x) { status('Görsel okunamadı.', true); return; } saveState(); refresh(); openEditor(key); };
+      const rm = body.querySelector('[data-rm]'); if (rm) rm.onclick = () => { d[key] = ''; saveState(); closeEditor(); refresh(); };
+      body.querySelectorAll('input[type=range]').forEach((r) => { r.oninput = () => setVal(r.dataset.k, +r.value); });
+    } else {
+      let inp;
+      if (f.type === 'textarea') { inp = document.createElement('textarea'); inp.rows = Math.max(2, f.rows || 3); }
+      else if (f.type === 'select') { inp = document.createElement('select'); const opts = f.options.slice(); if (d[key] && !opts.includes(d[key])) opts.push(d[key]); inp.innerHTML = opts.map((o) => `<option>${esc(o)}</option>`).join(''); }
+      else { inp = document.createElement('input'); inp.type = f.type === 'date' ? 'date' : 'text'; }
+      inp.id = 'ieInput'; inp.value = d[key] || '';
+      if (f.ph) inp.placeholder = f.ph;
+      inp.oninput = inp.onchange = () => setVal(key, inp.value);
+      inp.onkeydown = (e) => { if (e.key === 'Enter' && inp.tagName === 'INPUT') { e.preventDefault(); closeEditor(); } };
+      body.appendChild(inp);
+      if (f.type === 'select') { const custom = document.createElement('input'); custom.type = 'text'; custom.placeholder = 'ya da kendi etiketinizi yazın'; custom.oninput = () => setVal(key, custom.value); body.appendChild(custom); }
+      setTimeout(() => { inp.focus(); if (inp.select && inp.type !== 'date') inp.select(); }, 30);
+    }
+    ed.hidden = false;
+    hitLayer.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.title === f.label));
+    placeEditor();
+  }
+  function closeEditor() {
+    if (!edKey) return;
+    edKey = null; ed.hidden = true;
+    hitLayer.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
+    buildFields(); buildQuick(); scheduleThumbs();
+  }
+  $('#ieDone').onclick = closeEditor;
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeEditor(); });
+  document.addEventListener('pointerdown', (e) => { if (edKey && !ed.contains(e.target) && !hitLayer.contains(e.target)) closeEditor(); });
+
+  // Önizleme üstündeki hızlı düğmeler: fotoğraf, afiş, logo gibi görselde bulunmayabilecek alanlar
+  function buildQuick() {
+    const tpl = tplOf(state.tplId), d = dataOf(tpl), bar = $('#quickBar');
+    bar.innerHTML = '';
+    tpl.fields.filter((f) => ['image', 'images', 'logos'].includes(f.type)).forEach((f) => {
+      const has = f.type === 'image' ? !!d[f.key] : Array.isArray(d[f.key]) && d[f.key].length;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'qb' + (has ? '' : ' empty');
+      const short = f.label.replace(/\s*\(.*\)\s*/g, '');
+      const n = Array.isArray(d[f.key]) ? d[f.key].length : 0;
+      b.innerHTML = f.type === 'image' && has ? `<img src="${d[f.key]}" alt="" />${esc(short)}` : `${has ? '' : '+ '}${esc(short)}${n ? ` (${n})` : ''}`;
+      b.onclick = () => {
+        if (f.type === 'image') { if (has) openEditor(f.key); else { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = async () => { const file = i.files[0]; if (!file) return; d[f.key] = await loadPhoto(file); d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; saveState(); refresh(); }; i.click(); } }
+        else { const det = $('#allFields'); det.open = true; const lab = [...document.querySelectorAll('#fields .imgfield > span')].find((sp) => sp.textContent === f.label); (lab || det).scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      };
+      bar.appendChild(b);
     });
   }
 
@@ -293,6 +400,7 @@
       }
       form.appendChild(lab);
     });
+    buildQuick();
   }
 
   function refresh() {
@@ -314,6 +422,7 @@
     $('#chkBadge').checked = !!state.badge;
     buildUnits();
     buildSlides();
+    buildQuick();
     buildFields();
     saveState();
     scheduleRender();
@@ -407,12 +516,13 @@
     const fmt = fmtOf(state.fmtId);
     const start = performance.now();
     playing = { start, dur };
+    closeEditor(); hitLayer.hidden = true;
     const step = (now) => {
       const t = (now - start) / 1000;
       renderTo(cv, fmt, Math.min(t, dur));
       onFrame && onFrame(t);
       if (t < dur && playing) requestAnimationFrame(step);
-      else { playing = null; onEnd && onEnd(); scheduleRender(); }
+      else { playing = null; hitLayer.hidden = false; onEnd && onEnd(); scheduleRender(); }
     };
     requestAnimationFrame(step);
   }

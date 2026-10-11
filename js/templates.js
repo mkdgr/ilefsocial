@@ -67,7 +67,7 @@
       ctx.fillStyle = env.pal.grey; ctx.font = D.font(500, 26 * u, env.brand.fonts.body);
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       const maxW = rx - (x + 40 * u);
-      if (maxW > 160 * u) ctx.fillText(label, rx, top + 32 * u, maxW);
+      if (maxW > 160 * u) { ctx.fillText(label, rx, top + 32 * u, maxW); if (!env.unit) { const tw = Math.min(maxW, ctx.measureText(label).width); hit(env, 'ust', rx - tw, top + 10 * u, tw, 44 * u); } }
       ctx.textAlign = 'left';
     }
     ctx.restore();
@@ -79,7 +79,7 @@
     ctx.save();
     ctx.globalAlpha *= D.prog(t, 0.3, 0.6);
     ctx.fillStyle = pal.grey; ctx.font = D.font(500, 25 * u, brand.fonts.body); ctx.textBaseline = 'alphabetic';
-    if (left) ctx.fillText(left, m, bottom, env.W * 0.6);
+    if (left) { ctx.fillText(left, m, bottom, env.W * 0.6); const k = env.keyOf(left); if (k) hit(env, k, m, bottom - 30 * u, Math.min(env.W * 0.6, ctx.measureText(left).width), 40 * u); }
     if (right) { ctx.textAlign = 'right'; ctx.fillText(right, env.W - m - env.mr, bottom, env.W * 0.35); ctx.textAlign = 'left'; }
     ctx.restore();
   }
@@ -131,6 +131,7 @@
         const p = D.prog(env.t, delay + k * 0.12, env.calm ? 1.4 : 0.8);
         ctx.save(); ctx.globalAlpha *= p; ctx.translate(0, (1 - p) * (env.calm ? 0 : 28) * u);
         l.draw(ctx, box.x, y, box.w);
+        if (blocks[i].key && l.h > 0) hit(env, blocks[i].key, box.x, y, box.w, l.h);
         ctx.restore(); k++;
       }
       y += l.h;
@@ -140,6 +141,8 @@
 
   // ---------------------------------------------------------------- bloklar
   const B = {};
+  // Düzenlenebilir bölge kaydı: önizlemede dokununca ilgili alan açılır (yalnızca statik çizimde)
+  function hit(env, key, x, y, w, h) { if (env.hits && key) env.hits.push({ key, x, y, w, h }); }
   // Renk anahtar sözcükleri çizim anında paletten okunur (tam kadrajda palet değişebilir)
   const colorOf = (pal, c, def) => (c === 'fg' ? pal.fg : c === 'grey' ? pal.grey : c === 'sub' ? pal.sub : c || def);
   B.spacer = () => ({ spacer: true, layout: () => none });
@@ -148,7 +151,7 @@
     if (!text) return null;
     const { u, pal, brand } = env;
     const fz = 30 * u * Math.min(env.fs, 1.15);
-    return { gap: o.gap, layout() { return { h: fz * 1.2, draw(ctx, x, y) {
+    return { key: o.key || env.keyOf(text), gap: o.gap, layout() { return { h: fz * 1.2, draw(ctx, x, y) {
       const sq = fz * 0.74;
       ctx.fillStyle = o.square || pal.accent; ctx.fillRect(x, y + (fz * 1.2 - sq) / 2, sq, sq);
       ctx.fillStyle = pal.fg; ctx.font = D.font(600, fz, brand.fonts.body); ctx.textBaseline = 'middle';
@@ -160,7 +163,7 @@
   B.title = (env, text, o = {}) => {
     if (!text || !String(text).trim()) return null;
     const { u, pal, brand } = env;
-    return { gap: o.gap, flex: o.flex != null ? o.flex : 2, layout(ctx, w, maxH) {
+    return { key: o.key || env.keyOf(text), gap: o.gap, flex: o.flex != null ? o.flex : 2, layout(ctx, w, maxH) {
       const max = (o.max || 120) * u * env.fs;
       const mh = isFinite(maxH) ? maxH : max * (o.maxLines || 3);
       const f = D.fit(ctx, text, { weight: o.weight || 600, family: brand.fonts.head, max, min: (o.min || 52) * u * Math.min(env.fs, 1.1), maxW: w * (o.wr || 1), maxH: mh, lh: o.lh || 1.0, lsEm: o.lsEm != null ? o.lsEm : -0.035, maxLines: o.maxLines });
@@ -171,7 +174,7 @@
   B.lead = (env, text, o = {}) => {
     if (!text || !String(text).trim()) return null;
     const { u, pal, brand } = env;
-    return { gap: o.gap != null ? o.gap : 30, flex: o.flex != null ? o.flex : 1, layout(ctx, w, maxH) {
+    return { key: o.key || env.keyOf(text), gap: o.gap != null ? o.gap : 30, flex: o.flex != null ? o.flex : 1, layout(ctx, w, maxH) {
       const max = (o.max || 34) * u * env.fs;
       const f = D.fit(ctx, text, { weight: o.weight || 400, family: brand.fonts.body, max, min: (o.min || 24) * u, maxW: w * (o.wr || 0.92), maxH: isFinite(maxH) ? maxH : max * 1.4 * (o.maxLines || 4), lh: 1.38, lsEm: -0.005, maxLines: o.maxLines });
       return { h: f.h, draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x, y, bw, o.align, colorOf(pal, o.color, pal.sub)) };
@@ -205,6 +208,8 @@
           ctx.fillText(c.it.k, cx, y + 20 * u);
           ctx.fillStyle = pal.fg; ctx.font = D.font(600, c.sz, brand.fonts.body);
           c.lines.forEach((l, k) => ctx.fillText(l, cx, y + 20 * u + lab * 1.4 + k * lh));
+          const fk = c.it.key || env.keyOf(c.it.v);
+          if (fk) hit(env, fk, cx, y, c.cw - 12 * u, 20 * u + lab * 1.4 + c.lines.length * lh);
           cx += c.cw;
         });
         ctx.textBaseline = 'alphabetic';
@@ -254,7 +259,7 @@
     const p = D.parseDate(dateStr);
     if (!p && !dateStr) return null;
     const { u, pal, brand } = env;
-    return { gap: o.gap != null ? o.gap : 44, layout() {
+    return { key: o.key || env.keyOf(dateStr), gap: o.gap != null ? o.gap : 44, layout() {
       const s = (o.size || 250) * u * Math.min(env.fs, 1.2);
       return { h: s, draw(ctx, x, y) {
         if (p) dateFrame(ctx, env, p, { x, y, s, ink: pal.fg, red: env.brand.colors.red, label: o.label || p.weekday, foot: p.month });
@@ -273,7 +278,7 @@
   B.bignum = (env, num, sub, o = {}) => {
     if (!num) return null;
     const { u, pal, brand } = env;
-    return { gap: o.gap, layout(ctx, w) {
+    return { key: o.key || env.keyOf(num), gap: o.gap, layout(ctx, w) {
       const big = (o.size || 230) * u * env.fs;
       const f = D.fit(ctx, num, { weight: 600, family: brand.fonts.head, max: big, min: 80 * u, maxW: w, maxH: big * 1.05, lh: 1.0, lsEm: -0.05, maxLines: 1 });
       const sz = 32 * u * Math.min(env.fs, 1.15);
@@ -290,7 +295,7 @@
     const items = String(text || '').split('\n').map((s) => s.replace(/^[-•*\s]+/, '').trim()).filter(Boolean);
     if (!items.length) return null;
     const { u, pal, brand } = env;
-    return { gap: o.gap != null ? o.gap : 30, flex: 1, layout(ctx, w, maxH) {
+    return { key: o.key || env.keyOf(text), gap: o.gap != null ? o.gap : 30, flex: 1, layout(ctx, w, maxH) {
       let size = 32 * u * env.fs, res;
       for (;;) {
         ctx.font = D.font(500, size, brand.fonts.body);
@@ -319,7 +324,7 @@
     const p = D.parseDate(dateStr);
     if (!p) return null;
     const { u, pal, brand } = env;
-    return { gap: o.gap != null ? o.gap : 44, side: true, layout(ctx, w) {
+    return { key: o.key || env.keyOf(dateStr), gap: o.gap != null ? o.gap : 44, side: true, layout(ctx, w) {
       const narrow = w < 640 * u;
       const calW = narrow ? w : Math.min(w * 0.46, 470 * u * Math.min(env.fs, 1.15)), cw = calW / 7, ch = cw * 0.86;
       const first = (new Date(p.y, p.mo, 1).getDay() + 6) % 7; // Pazartesi = 0
@@ -410,6 +415,7 @@
 
   // Fotoğraf (dikdörtgen, temiz)
   function drawPhoto(ctx, env, ph, x, y, w, h) {
+    if (ph.key && ctx === env.ctx) hit(env, ph.key, x, y, w, h);
     const p = D.prog(env.t, 0.15, 1.0);
     const z = isFinite(env.t) && !env.calm ? 1.06 - 0.06 * D.clamp(env.t / 8, 0, 1) : 1;
     ctx.save();
@@ -423,6 +429,7 @@
   // Fotoğrafı zemine eriterek çizer: kenarlar alfa maskesiyle yumuşar (fotoğrafın başladığı yer belli olmaz)
   // fade: { left, right, top, bottom } — kenardan itibaren erime oranı (0..1, kutu boyuna göre)
   function drawPhotoFaded(ctx, env, ph, x, y, w, h, fade) {
+    if (ph.key) hit(env, ph.key, x, y, w, h);
     const c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
     const x2 = c.getContext('2d');
@@ -442,6 +449,7 @@
   }
   // Hazır afiş: kırpmadan, gölgeyle
   function drawPoster(ctx, env, img, x, y, w, h) {
+    hit(env, 'afis', x, y, w, h);
     const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     const s = Math.min(w / iw, h / ih), pw = iw * s, ph = ih * s;
     const px = x + (w - pw) / 2, py = y + (h - ph) / 2;
@@ -530,6 +538,7 @@
     if (!p) return;
     const { u, W, m, brand } = env;
     const s = 230 * u * Math.min(env.fs, 1.15), x = W - m - env.mr - s, y = sigBottom + 50 * u;
+    hit(env, env.keyOf(c.date), x, y, s, s);
     dateFrame(ctx, env, p, { x, y, s, ink: '#FFFFFF', red: env.brand.colors.red, glass: true, label: p.weekday, foot: p.month, footR: c.time || '' });
     void brand;
   }
@@ -549,6 +558,7 @@
     // çizgi çerçeveli dev tarih kartı (kenar boşluğundan başlar)
     const fx = env.wide ? m : m;
     s = Math.min(s, (env.wide ? H : W) - 2 * m);
+    hit(env, env.keyOf(spec.dev.date), fx, sy + 10 * u, s, s);
     dateFrame(ctx, env, p, { x: fx, y: sy + 10 * u, s, ink: env.pal.fg, red: brand.colors.red, label: spec.dev.label || p.weekday, foot: p.month, footR: spec.dev.sub || (spec.dev.label ? p.weekday : '') });
     void sx;
     signature(ctx, env);
@@ -577,7 +587,7 @@
 
   // ---------------------------------------------------------------- yardımcılar
   const img = (env, src) => (src ? env.getImage(src) : null);
-  const photoOf = (env, d, key) => { const im = img(env, d[key]); return im ? { img: im, fx: d[key + '_fx'], fy: d[key + '_fy'] } : null; };
+  const photoOf = (env, d, key) => { const im = img(env, d[key]); return im ? { img: im, fx: d[key + '_fx'], fy: d[key + '_fy'], key } : null; };
   const partnersOf = (env, d) => (Array.isArray(d.ortaklar) ? d.ortaklar.map((s) => img(env, s)) : []);
   const PARTNER_FIELDS = [
     { key: 'ortaklar', label: 'İş birliği / destekçi logoları (en fazla 4)', type: 'logos' },
@@ -683,7 +693,7 @@
       const top = [B.cat(env, d.tur), B.title(env, d.baslik, { gap: 34 }), B.lead(env, d.alt), B.lead(env, speakers, { weight: 600, color: 'fg', gap: 18, flex: 0.6 }), B.wave(env, d.baslik)];
       const when = D.parseDate(d.tarih) ? D.fmtDate(d.tarih, true) : d.tarih;
       const bottom = ph || env.wide
-        ? [B.partners(env, partnersOf(env, d), d.ortakEtiket), B.facts(env, [{ k: 'Tarih', v: when }, { k: 'Saat', v: d.saat }, { k: 'Yer', v: d.yer }])]
+        ? [B.partners(env, partnersOf(env, d), d.ortakEtiket), B.facts(env, [{ k: 'Tarih', v: when, key: 'tarih' }, { k: 'Saat', v: d.saat }, { k: 'Yer', v: d.yer }])]
         : [B.partners(env, partnersOf(env, d), d.ortakEtiket), B.dateSq(env, d.tarih, [d.saat, d.yer])];
       if (env.layout === 'tam' && ph) {
         compose(ctx, env, { layout: 'tam', photo: ph, corner: { date: d.tarih, time: d.saat },
@@ -828,7 +838,7 @@
       const poster = img(env, d.afis);
       const when = D.parseDate(d.tarih) ? D.fmtDate(d.tarih, false) : d.tarih;
       const top = d.baslik ? [B.cat(env, d.etiket), B.title(env, d.baslik, { max: 64, min: 36, maxLines: 2, gap: 16, flex: 0 })] : [];
-      const bottom = [B.facts(env, [{ k: 'Tarih', v: when }, { k: 'Saat', v: d.saat }, { k: 'Yer', v: d.yer }], { gap: 24 })];
+      const bottom = [B.facts(env, [{ k: 'Tarih', v: when, key: 'tarih' }, { k: 'Saat', v: d.saat }, { k: 'Yer', v: d.yer }], { gap: 24 })];
       if (poster) compose(ctx, env, { poster, top, bottom, footL: env.brand.web, footR: env.brand.social });
       else compose(ctx, env, { top: [B.cat(env, 'Hazır afiş'), B.lead(env, 'Soldaki panelden afiş ya da banner görselini yükleyin. Görsel kırpılmadan bu çerçeveye yerleşir.')], bottom, footL: env.brand.web });
     },
@@ -904,12 +914,21 @@
         fs: H / W > 1.5 ? 1.16 : W / H > 1.3 ? 0.92 : Math.abs(W - H) < 10 ? 0.9 : 1,
         m: (W > H ? 96 : 88) * u, mr: (fmt.safeRight || 0) * u,
         top: (fmt.safeTop || 80) * u, bottom: H - (fmt.safeBottom || 72) * u,
-        getImage,
+        getImage, data, ctx, hits: o.hits || null,
+        // Çizilen metnin hangi alandan geldiğini bulur (boşluk ve · farkları yok sayılır)
+        keyOf(v) {
+          if (v == null || v === '') return null;
+          const n = (x) => String(x).replace(/[\s·]+/g, ' ').trim();
+          const t = n(v);
+          for (const f of tpl.fields) if (typeof data[f.key] === 'string' && data[f.key] && n(data[f.key]) === t) return f.key;
+          return null;
+        },
       };
       ctx.save();
       ctx.clearRect(0, 0, W, H);
       tpl.render(ctx, data, env);
       ctx.restore();
+      return env.hits;
     },
   };
 })();

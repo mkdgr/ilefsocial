@@ -40,6 +40,9 @@ Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada
 
 ## Kullanım
 
+**Satır içi düzenleme:** Önizlemedeki başlığa, etikete, tarihe, yere ya da fotoğrafa dokunun; küçük bir düzenleyici açılır, değişiklik anında görünür. Fotoğraf, afiş ve logo gibi alanlar önizlemenin üstündeki düğmelerden eklenir. Görselde görünmeyen alanlar “Tüm alanlar” altındadır. Telefonda önizleme üstte tam genişlikte, düzenleyici alttan açılan panel olarak çalışır.
+
+
 1. **Şablonu** ve **formatı** seçin; gerekirse **bölüm/atölye** seçin (logosu ve adı sağ üstte görünür, motifi otomatik gelir).
 2. **Görünüm:** zemin (beyaz/kırmızı), mesh tonu, konu motifi — hepsi “Otomatik” bırakılabilir. 2026 boyunca **80. yıl rozeti** açılabilir.
 3. **İçeriği** doldurun. Tarih alanları takvimden seçilir; Türkçe gün/ay adları otomatik yazılır.

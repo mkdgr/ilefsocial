@@ -52,16 +52,27 @@
         <label class="check"><input type="checkbox" id="chkBadge" /> 80. yıl logosunu kullan <small style="color:var(--muted)">(Ankara Üniversitesi logosunun yerine)</small></label>
       </section>
       <section>
-        <h2><span>5</span> İçerik</h2>
-        <form id="fields" class="fields" autocomplete="off"></form>
+        <details id="allFields">
+          <summary><h2><span>5</span> Tüm alanlar</h2><small>Önizlemede görünmeyen alanlar da burada</small></summary>
+          <form id="fields" class="fields" autocomplete="off"></form>
+        </details>
         <button type="button" class="link" id="btnReset">Örnek içeriğe dön</button>
       </section>
     </aside>
 
     <section class="stage">
+      <div class="quickbar" id="quickBar"></div>
       <div class="stage-canvas" id="stageBox">
-        <canvas id="cv" width="1080" height="1350"></canvas>
+        <div class="canvas-wrap" id="cvWrap">
+          <canvas id="cv" width="1080" height="1350"></canvas>
+          <div class="hit-layer" id="hitLayer" aria-label="Düzenlenebilir alanlar"></div>
+        </div>
+        <div class="inline-ed" id="inlineEd" hidden role="dialog" aria-label="Alanı düzenle">
+          <div class="ie-head"><b id="ieLabel"></b><button type="button" class="primary" id="ieDone">Bitti</button></div>
+          <div id="ieBody"></div>
+        </div>
       </div>
+      <p class="hint" id="editHint">Düzenlemek için önizlemedeki yazıya, tarihe ya da fotoğrafa dokunun.</p>
       <div class="slidebar" id="slideBar" hidden></div>
       <div class="actions">
         <button type="button" class="primary" id="btnPng">PNG indir</button>
