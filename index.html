@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>İLEF Görsel Stüdyo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,115 +11,162 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brandmark">
-      <img src="assets/logos/ilef.svg" alt="" />
-      <div>
-        <strong>Görsel Stüdyo</strong>
-        <span>Ankara Üniversitesi İletişim Fakültesi · sosyal medya</span>
+    <div class="brandmark"><img src="assets/logos/ilef.svg" alt="ilef" /><strong>Görsel Stüdyo</strong></div>
+    <div class="tb-left">
+      <div class="menu">
+        <button type="button" class="tb" data-menu="fileMenu" aria-haspopup="true">Dosya</button>
+        <div class="menu-pop" id="fileMenu" hidden>
+          <button type="button" id="btnSave"><i>⤓</i>Taslağı kaydet <small>.json</small></button>
+          <label class="btnlike"><i>⤒</i>Taslak aç<input type="file" id="fileDraft" accept=".json,application/json" hidden /></label>
+          <hr />
+          <button type="button" id="btnReset"><i>↺</i>Örnek içeriğe dön</button>
+          <button type="button" id="btnResetPos"><i>⌖</i>Tüm konumları sıfırla</button>
+          <hr />
+          <button type="button" id="btnBrand"><i>◐</i>Marka &amp; logolar</button>
+          <a class="btnlike" href="kimlik.html" target="_blank" rel="noopener"><i>¶</i>Kimlik kılavuzu</a>
+        </div>
       </div>
+      <div class="menu">
+        <button type="button" class="tb" data-menu="fmtMenu" aria-haspopup="true">Yeniden boyutlandır</button>
+        <div class="menu-pop wide" id="fmtMenu" hidden><div id="fmtSeg" class="fmt-list"></div></div>
+      </div>
+      <span class="tb-sep"></span>
+      <button type="button" class="tb icon" id="btnUndo" title="Geri al (Ctrl+Z)" aria-label="Geri al" disabled><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button type="button" class="tb icon" id="btnRedo" title="Yinele (Ctrl+Shift+Z)" aria-label="Yinele" disabled><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
     </div>
-    <div class="top-actions">
-      <button type="button" class="ghost" id="btnSave" title="Bu tasarımı .json olarak kaydet">Taslağı kaydet</button>
-      <label class="ghost btnlike" title="Kaydedilmiş bir .json taslağını aç">Taslak aç<input type="file" id="fileDraft" accept=".json,application/json" hidden /></label>
-      <a class="ghost btnlike" href="kimlik.html" target="_blank" rel="noopener">Kimlik kılavuzu</a>
-      <button type="button" class="ghost" id="btnBrand">Marka &amp; logolar</button>
+    <div class="tb-title" id="docTitle"></div>
+    <div class="tb-right">
+      <button type="button" class="tb icon" id="btnPlay" title="Animasyonu oynat" aria-label="Animasyonu oynat"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/></svg></button>
+      <div class="menu">
+        <button type="button" class="primary" data-menu="dlMenu" aria-haspopup="true" id="btnDl">İndir</button>
+        <div class="menu-pop right" id="dlMenu" hidden>
+          <p class="menu-note" id="dlNote"></p>
+          <button type="button" id="btnPng"><i>▣</i>PNG <small>bu boyut</small></button>
+          <button type="button" id="btnAll"><i>▤</i>Tüm formatlar (PNG)</button>
+          <hr />
+          <div class="video-group">
+            <i>●</i><span>Video (MP4)</span>
+            <select id="durSel" title="Video süresi">
+              <option value="6">6 sn</option>
+              <option value="8" selected>8 sn</option>
+              <option value="12">12 sn</option>
+              <option value="15">15 sn</option>
+              <option value="30">30 sn</option>
+            </select>
+            <button type="button" id="btnVideo">Kaydet</button>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="layout">
-    <aside class="panel">
-      <section>
-        <h2><span>1</span> Şablon</h2>
+  <main class="app">
+    <nav class="rail" aria-label="Araçlar">
+      <button type="button" data-panel="sablon" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Şablonlar</span></button>
+      <button type="button" data-panel="tasarim"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.3" fill="currentColor"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="10" r="1.3" fill="currentColor"/><path d="M12 21a3 3 0 0 1 0-6h1.5"/></svg><span>Tasarım</span></button>
+      <button type="button" data-panel="metin"><svg viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg><span>Metin</span></button>
+      <button type="button" data-panel="yukle"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0-4.5 4.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span>Yüklemeler</span></button>
+      <button type="button" data-panel="birim"><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6"/></svg><span>Birim</span></button>
+      <button type="button" data-panel="paylas"><svg viewBox="0 0 24 24"><path d="M5 12.5 9.5 17 19 7"/></svg><span>Yayın</span></button>
+    </nav>
+
+    <aside class="panel" id="panel" aria-label="Araç paneli">
+      <button type="button" class="panel-close" id="panelClose" aria-label="Paneli kapat" title="Paneli kapat">‹</button>
+      <section data-p="sablon">
+        <h2>Şablonlar</h2>
         <div id="tplGrid" class="tpl-grid"></div>
       </section>
-      <section>
-        <h2><span>2</span> Format</h2>
-        <div id="fmtSeg" class="chips"></div>
-      </section>
-      <section>
-        <h2><span>3</span> Bölüm / atölye</h2>
-        <select id="unitSel"></select>
-      </section>
-      <section>
-        <h2><span>4</span> Görünüm</h2>
+      <section data-p="tasarim" hidden>
+        <h2>Tasarım</h2>
         <div id="layoutWrap"><small class="sublabel">Yerleşim</small><div id="layoutSeg" class="chips"></div></div>
         <small class="sublabel">Zemin</small>
         <div id="groundSeg" class="chips"></div>
-        <div class="row3">
-          <label>Renk tonu (mesh)<select id="meshSel"></select></label>
-          <label>Konu motifi<select id="motifSel"></select></label>
-        </div>
-        <label class="check"><input type="checkbox" id="chkBadge" /> 80. yıl logosunu kullan <small style="color:var(--muted)">(Ankara Üniversitesi logosunun yerine)</small></label>
+        <small class="sublabel">Renk tonu (mesh)</small>
+        <div id="meshSeg" class="swatch-row"></div>
+        <select id="meshSel" hidden></select>
+        <small class="sublabel">Konu motifi</small>
+        <select id="motifSel" class="fullsel"></select>
+        <label class="check"><input type="checkbox" id="chkBadge" /> 80. yıl logosu <small>(Ankara Üniversitesi logosunun yerine)</small></label>
       </section>
-      <section>
-        <details id="allFields">
-          <summary><h2><span>5</span> Tüm alanlar</h2><small>Önizlemede görünmeyen alanlar da burada</small></summary>
-          <form id="fields" class="fields" autocomplete="off"></form>
-        </details>
-        <button type="button" class="link" id="btnReset">Örnek içeriğe dön</button>
+      <section data-p="metin" hidden>
+        <h2>Metin</h2>
+        <p class="note">Görseldeki yazıya çift tıklayarak yerinde düzenleyin. Görselde olmayan alanlar burada.</p>
+        <div id="hiddenList" class="hidden-list"></div>
+        <form id="fields" class="fields" autocomplete="off"></form>
+      </section>
+      <section data-p="yukle" hidden>
+        <h2>Yüklemeler</h2>
+        <label class="btnlike primary block">Dosya yükle<input type="file" id="fileUp" accept="image/*" multiple hidden /></label>
+        <small class="sublabel">Bu tasarımdaki görsel alanları</small>
+        <div class="quickbar" id="quickBar"></div>
+        <small class="sublabel">Görseller <span class="muted">— tıklayın ya da tuvale sürükleyin</span></small>
+        <div class="up-grid" id="upGrid"></div>
+      </section>
+      <section data-p="birim" hidden>
+        <h2>Bölüm / atölye</h2>
+        <p class="note">Seçilen birimin logosu ve adı sağ üstte görünür, konu motifi kendiliğinden gelir.</p>
+        <div id="unitGrid" class="unit-grid"></div>
+      </section>
+      <section data-p="paylas" hidden>
+        <h2>Yayın</h2>
+        <div class="assist">
+          <section class="checks">
+            <h3>Kontroller <label class="toggle"><input type="checkbox" id="chkSafe" /> Güvenli alan</label></h3>
+            <ul id="checkList"></ul>
+          </section>
+          <section class="share">
+            <h3>Paylaşım metni <small>otomatik taslak</small></h3>
+            <label>Açıklama<textarea id="shCaption" rows="5"></textarea></label>
+            <label>Alternatif metin<textarea id="shAlt" rows="3"></textarea></label>
+            <label>Etiketler (3–5)<textarea id="shTags" rows="2"></textarea></label>
+            <div class="share-actions">
+              <button type="button" data-copy="shCaption">Açıklamayı kopyala</button>
+              <button type="button" data-copy="shAlt">Alt metni kopyala</button>
+              <button type="button" data-copy="shTags">Etiketleri kopyala</button>
+              <button type="button" class="link" id="btnRegen">Yeniden üret</button>
+            </div>
+          </section>
+          <section class="gridprev">
+            <h3>Izgara önizlemesi <small>yeni gönderi son paylaşılanların yanında</small></h3>
+            <div class="ig" id="igGrid"></div>
+            <div class="share-actions">
+              <button type="button" id="btnGridAdd">Izgaraya ekle</button>
+              <label class="btnlike">Mevcut gönderi ekle<input type="file" id="fileGrid" accept="image/*" multiple hidden /></label>
+              <button type="button" class="link" id="btnGridClear">Temizle</button>
+            </div>
+          </section>
+        </div>
       </section>
     </aside>
 
-    <section class="stage">
-      <div class="quickbar" id="quickBar"></div>
+    <section class="work">
+      <div class="ctxbar" id="ctxBar" role="toolbar" aria-label="Seçili öğe araçları"></div>
       <div class="stage-canvas" id="stageBox">
         <div class="canvas-wrap" id="cvWrap">
           <canvas id="cv" width="1080" height="1350"></canvas>
-          <div class="hit-layer" id="hitLayer" aria-label="Düzenlenebilir alanlar"></div>
+          <div class="hit-layer" id="hitLayer" aria-label="Düzenlenebilir öğeler"></div>
+          <div class="guides" id="guides"></div>
+          <div class="sel" id="selBox" hidden>
+            <span class="sel-tag" id="selTag"></span>
+            <i class="h nw" data-h="nw"></i><i class="h ne" data-h="ne"></i><i class="h sw" data-h="sw"></i><i class="h se" data-h="se"></i>
+          </div>
+          <textarea id="textEd" class="text-ed" hidden spellcheck="true" aria-label="Metni düzenle"></textarea>
         </div>
         <div class="inline-ed" id="inlineEd" hidden role="dialog" aria-label="Alanı düzenle">
           <div class="ie-head"><b id="ieLabel"></b><button type="button" class="primary" id="ieDone">Bitti</button></div>
           <div id="ieBody"></div>
         </div>
       </div>
-      <p class="hint" id="editHint">Düzenlemek için önizlemedeki yazıya, tarihe ya da fotoğrafa dokunun.</p>
-      <div class="slidebar" id="slideBar" hidden></div>
-      <div class="actions">
-        <button type="button" class="primary" id="btnPng">PNG indir</button>
-        <button type="button" id="btnAll">Tüm formatlar (PNG)</button>
-        <span class="sep"></span>
-        <button type="button" id="btnPlay">▶ Animasyonu oynat</button>
-        <div class="video-group">
-          <select id="durSel" title="Video süresi">
-            <option value="6">6 sn</option>
-            <option value="8" selected>8 sn</option>
-            <option value="12">12 sn</option>
-            <option value="15">15 sn</option>
-            <option value="30">30 sn</option>
-          </select>
-          <button type="button" id="btnVideo">● Video kaydet</button>
+      <footer class="workfoot">
+        <div class="pages" id="slideBar"></div>
+        <p class="status" id="status" role="status"></p>
+        <div class="zoom">
+          <button type="button" class="tb icon sm" id="zoomOut" aria-label="Uzaklaştır">−</button>
+          <input type="range" id="zoomRange" min="10" max="200" step="1" value="50" aria-label="Yakınlaştırma" />
+          <button type="button" class="tb icon sm" id="zoomIn" aria-label="Yakınlaştır">+</button>
+          <button type="button" class="tb sm" id="zoomFit" title="Ekrana sığdır">%<span id="zoomPct">50</span></button>
         </div>
-      </div>
-      <p class="status" id="status" role="status"></p>
-      <div class="assist">
-        <section class="checks">
-          <h2>Kontroller <label class="toggle"><input type="checkbox" id="chkSafe" /> Güvenli alanı göster</label></h2>
-          <ul id="checkList"></ul>
-        </section>
-        <section class="gridprev">
-          <h2>Izgara önizlemesi <small>yeni gönderi son paylaşılanların yanında</small></h2>
-          <div class="ig" id="igGrid"></div>
-          <div class="share-actions">
-            <button type="button" id="btnGridAdd">Izgaraya ekle</button>
-            <label class="btnlike">Mevcut gönderi ekle<input type="file" id="fileGrid" accept="image/*" multiple hidden /></label>
-            <button type="button" class="link" id="btnGridClear">Temizle</button>
-          </div>
-        </section>
-        <section class="share">
-          <h2>Paylaşım metni <small>otomatik taslak — göndermeden önce düzenleyin</small></h2>
-          <label>Açıklama (ilk satır en önemli bilgi)<textarea id="shCaption" rows="4"></textarea></label>
-          <div class="grid2">
-            <label>Alternatif metin (erişilebilirlik)<textarea id="shAlt" rows="3"></textarea></label>
-            <label>Etiketler (3–5 adet)<textarea id="shTags" rows="3"></textarea></label>
-          </div>
-          <div class="share-actions">
-            <button type="button" data-copy="shCaption">Açıklamayı kopyala</button>
-            <button type="button" data-copy="shAlt">Alt metni kopyala</button>
-            <button type="button" data-copy="shTags">Etiketleri kopyala</button>
-            <button type="button" class="link" id="btnRegen">Yeniden üret</button>
-          </div>
-        </section>
-      </div>
+      </footer>
     </section>
   </main>
 

@@ -40,16 +40,21 @@ Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada
 
 ## Kullanım
 
-**Satır içi düzenleme:** Önizlemedeki başlığa, etikete, tarihe, yere ya da fotoğrafa dokunun; küçük bir düzenleyici açılır, değişiklik anında görünür. Fotoğraf, afiş ve logo gibi alanlar önizlemenin üstündeki düğmelerden eklenir. Görselde görünmeyen alanlar “Tüm alanlar” altındadır. Telefonda önizleme üstte tam genişlikte, düzenleyici alttan açılan panel olarak çalışır.
+### Editör
 
+Canva’ya benzer bir çalışma düzeni:
 
-1. **Şablonu** ve **formatı** seçin; gerekirse **bölüm/atölye** seçin (logosu ve adı sağ üstte görünür, motifi otomatik gelir).
-2. **Görünüm:** zemin (beyaz/kırmızı), mesh tonu, konu motifi — hepsi “Otomatik” bırakılabilir. 2026 boyunca **80. yıl rozeti** açılabilir.
-3. **İçeriği** doldurun. Tarih alanları takvimden seçilir; Türkçe gün/ay adları otomatik yazılır.
-4. **PNG indir**, **Tüm formatlar** (karuselde: tüm sayfalar) ya da **Video kaydet** (6–30 sn). Video kaydı gerçek zamanlıdır; sekmeyi değiştirmeyin.
-5. **Paylaşım metni:** açıklama, alternatif metin ve 3–5 etiket taslağını kopyalayıp düzenleyin.
+- **Sol menü:** Şablonlar · Tasarım (yerleşim, zemin, mesh tonu, motif, 80. yıl) · Metin (tüm alanlar, silinen öğeleri geri getirme) · Yüklemeler · Birim · Yayın (kontroller, paylaşım metni, ızgara önizlemesi). Simgeye tekrar basınca panel kapanır.
+- **Üst çubuk:** Dosya (taslak kaydet/aç, örnek içerik, konumları sıfırla, marka), **Yeniden boyutlandır** (5 format), geri al / yinele, oynat ve **İndir** (PNG, tüm formatlar/sayfalar, MP4 video).
+- **Tuval:** öğeye tıklayın → seçilir, üstte o öğeye özel araç çubuğu açılır. Yazılar **sürüklenir** (ortaya ve kenar boşluklarına mıknatıslanır), **köşe tutamaçlarıyla büyür**; **çift tıklayınca** (ya da seçiliyken bir kez daha tıklayınca) yerinde yazılır.
+- **Araç çubuğu:** boyut (A− / A+), renk (yalnızca marka paleti), konumu sıfırla, sil. Fotoğrafta değiştir / kaldır / kadraj; fotoğraf seçiliyken sürüklemek kadrajı kaydırır. Tarihte takvim.
+- **Yüklemeler:** “Dosya yükle” ya da fotoğrafı doğrudan tuvale sürükleyip bırakın; bırakılan fotoğraf alanına yerleşir. Karuselde alttaki **+** yeni sayfa ekler.
+- **Alt şerit:** sayfa küçük resimleri, yakınlaştırma (Ctrl + tekerlek, Ctrl + / Ctrl − / Ctrl 0).
+- **Kısayollar:** Ctrl+Z / Ctrl+Shift+Z, Delete (sil), Enter (düzenle), ok tuşları (Shift ile 10 px), Esc.
+- **Kimlik koruması:** yazı tipi her zaman Instrument Sans, renkler yalnızca marka paletinden; konum ve ölçek her formatta ayrı, renk ve silme tüm formatlarda ortak tutulur.
+- **Telefonda:** menü alt sekme çubuğuna, paneller alttan açılan sayfaya, araç çubuğu ekranın altına iner.
 
-Çalışmalar tarayıcıda saklanır; **Taslağı kaydet / Taslak aç** ile `.json` olarak paylaşılabilir.
+Çalışmalar tarayıcıda saklanır (claude.ai’de yayınlanan sürümde sayfa yenilenince sıfırlanır); **Dosya → Taslağı kaydet / Taslak aç** ile `.json` olarak saklanıp paylaşılabilir.
 
 ## Logo ekleme
 

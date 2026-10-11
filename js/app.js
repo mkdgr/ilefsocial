@@ -46,8 +46,9 @@
     tpl.fields.forEach((f) => { d[f.key] = f.def != null ? f.def : f.type === 'logos' || f.type === 'images' ? [] : ''; if (f.type === 'image') { d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; } });
     return d;
   };
-  let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, layouts: {}, data: {} }, ls.get(STATE_KEY) || {});
+  let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, layouts: {}, data: {}, ov: {} }, ls.get(STATE_KEY) || {});
   state.layouts = state.layouts || {};
+  state.ov = state.ov || {};
   const tplOf = (id) => TPLS.find((t) => t.id === id) || TPLS[0];
   const fmtOf = (id) => FORMATS.find((f) => f.id === id) || FORMATS[0];
   // Aynı nesne korunur (form alanları bu nesneye yazar); eksik alanlar varsayılanla tamamlanır
@@ -60,6 +61,7 @@
   const unitOf = () => brand.logos.find((l) => l.id === state.unitId && (l.group === 'bolum' || l.group === 'atolye')) || null;
   let saveTimer;
   function saveState() {
+    scheduleCommit();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       if (!ls.set(STATE_KEY, state)) {
@@ -132,7 +134,7 @@
   function renderTo(c, fmt, t, tpl = tplOf(state.tplId), data, slide, hits) {
     if (c.width !== fmt.w) c.width = fmt.w;
     if (c.height !== fmt.h) c.height = fmt.h;
-    return Studio.render(c.getContext('2d'), { tpl, hits, data: data || dataOf(tpl), layout: state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage });
+    return Studio.render(c.getContext('2d'), { tpl, hits, data: data || dataOf(tpl), layout: state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage, ov: ovFor(tpl.id, fmt.id), editing: c === cv ? textKey : null });
   }
   // Önizleme canvas'ını sahne kutusuna sığdır
   const stageBox = $('#stageBox');
@@ -141,11 +143,14 @@
     const cs = getComputedStyle(stageBox);
     const aw = stageBox.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const ah = stageBox.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-    // mobilde genişliğe göre sığdır (yükseklik ekranın %72'sini geçmesin)
-    const mobile = window.innerWidth <= 900;
-    const k = Math.max(0.05, mobile ? Math.min(aw / fmt.w, (window.innerHeight * 0.72) / fmt.h) : Math.min(aw / fmt.w, ah / fmt.h));
+    const fitK = Math.max(0.05, Math.min(aw / fmt.w, ah / fmt.h));
+    const k = zoom || fitK;
     cv.style.width = Math.floor(fmt.w * k) + 'px';
     cv.style.height = Math.floor(fmt.h * k) + 'px';
+    $('#zoomPct').textContent = Math.round(k * 100);
+    $('#zoomRange').value = Math.round(k * 100);
+    if (textKey) placeText();
+    if (edKey) placeEditor();
   }
   if (window.ResizeObserver) new ResizeObserver(fitCanvas).observe(stageBox);
   window.addEventListener('resize', fitCanvas);
@@ -154,7 +159,7 @@
   function scheduleRender() {
     if (playing || raf) return;
     raf = requestAnimationFrame(() => { raf = 0; const hits = []; renderTo(cv, fmtOf(state.fmtId), Infinity, undefined, undefined, undefined, hits); drawSafe(); fitCanvas(); buildHits(hits); });
-    scheduleShare();
+    scheduleShare(); schedulePages();
   }
 
   // Şablon küçük resimleri
@@ -173,63 +178,255 @@
     });
   }
 
-  // ------------------------------------------------------------ Satır içi düzenleme
-  // Önizlemedeki her yazı/tarih/fotoğraf bölgesi dokunulabilir bir düğme olur; dokununca küçük düzenleyici açılır.
-  const hitLayer = $('#hitLayer'), ed = $('#inlineEd');
-  let edKey = null, lastHits = [];
+  // ------------------------------------------------------------ Editör (Canva benzeri)
+  // Tuvaldeki her öğe seçilebilir: tıklayınca seçilir, sürükleyince taşınır, köşelerden büyür,
+  // çift tıklayınca (ya da seçiliyken bir kez daha tıklayınca) yerinde düzenlenir.
+  const hitLayer = $('#hitLayer'), ed = $('#inlineEd'), selBox = $('#selBox'), textEd = $('#textEd'), guides = $('#guides');
+  let edKey = null, selKey = null, textKey = null, lastHits = [], merged = new Map(), drag = null;
   const fieldOf = (key) => tplOf(state.tplId).fields.find((f) => f.key === key);
+  const scaleK = () => cv.clientWidth / fmtOf(state.fmtId).w;
+  const isTyping = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable); };
+
+  // Öğe ayarları: konum/ölçek formata özel, renk ve silme tüm formatlarda geçerli
+  function ovStore(tplId = state.tplId) { return state.ov[tplId] || (state.ov[tplId] = { all: {} }); }
+  function ovFor(tplId = state.tplId, fmtId = state.fmtId) {
+    const st = state.ov[tplId]; if (!st) return null;
+    const pos = st[fmtId] || {}, all = st.all || {}, out = {};
+    new Set([...Object.keys(pos), ...Object.keys(all)]).forEach((k) => { out[k] = Object.assign({}, all[k], pos[k]); });
+    return out;
+  }
+  const curOv = (key) => (ovFor() || {})[key] || {};
+  function setOv(key, patch) {
+    const st = ovStore();
+    ['dx', 'dy', 's', 'color', 'hidden'].forEach((p) => {
+      if (!(p in patch)) return;
+      const bag = p === 'color' || p === 'hidden' ? (st.all || (st.all = {})) : (st[state.fmtId] || (st[state.fmtId] = {}));
+      const o = bag[key] || (bag[key] = {});
+      const v = patch[p];
+      if (v == null || v === false || (p === 's' && Math.abs(v - 1) < 0.001) || ((p === 'dx' || p === 'dy') && Math.abs(v) < 0.5)) delete o[p]; else o[p] = v;
+      if (!Object.keys(o).length) delete bag[key];
+    });
+    saveState(); scheduleRender();
+  }
+
   function buildHits(hits) {
     lastHits = hits || [];
     const fmt = fmtOf(state.fmtId);
-    hitLayer.innerHTML = '';
-    // aynı alanın birden çok parçası tek bölgede birleşir
-    const merged = new Map();
+    merged = new Map();
     lastHits.forEach((h) => {
       if (!fieldOf(h.key)) return;
       const m = merged.get(h.key);
       if (!m) merged.set(h.key, { ...h });
-      else { const x2 = Math.max(m.x + m.w, h.x + h.w), y2 = Math.max(m.y + m.h, h.y + h.h); m.x = Math.min(m.x, h.x); m.y = Math.min(m.y, h.y); m.w = x2 - m.x; m.h = y2 - m.y; }
+      else { const x2 = Math.max(m.x + m.w, h.x + h.w), y2 = Math.max(m.y + m.h, h.y + h.h); m.x = Math.min(m.x, h.x); m.y = Math.min(m.y, h.y); m.w = x2 - m.x; m.h = y2 - m.y; m.movable = m.movable || h.movable; }
     });
-    // büyük bölgeler (fotoğraf) altta kalsın ki üstündeki yazılar tıklanabilsin
-    [...merged.values()].sort((a, b) => b.w * b.h - a.w * a.h).forEach((h) => {
-      const f = fieldOf(h.key);
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = (f.type === 'image' ? 'img' : '') + (h.key === edKey ? ' active' : '');
-      b.style.left = (h.x / fmt.w) * 100 + '%'; b.style.top = (h.y / fmt.h) * 100 + '%';
-      b.style.width = (h.w / fmt.w) * 100 + '%'; b.style.height = (h.h / fmt.h) * 100 + '%';
-      b.title = f.label; b.setAttribute('aria-label', f.label + ' — düzenle');
-      b.onclick = (e) => { e.stopPropagation(); openEditor(h.key); };
-      hitLayer.appendChild(b);
-    });
+    if (!drag) {
+      hitLayer.innerHTML = '';
+      // büyük bölgeler (fotoğraf) altta kalsın ki üstündeki yazılar seçilebilsin
+      [...merged.values()].sort((a, b) => b.w * b.h - a.w * a.h).forEach((h) => {
+        const f = fieldOf(h.key);
+        const b = document.createElement('div');
+        b.dataset.key = h.key;
+        b.className = f.type === 'image' ? 'img' : h.movable ? '' : 'fixed';
+        b.style.left = (h.x / fmt.w) * 100 + '%'; b.style.top = (h.y / fmt.h) * 100 + '%';
+        b.style.width = (h.w / fmt.w) * 100 + '%'; b.style.height = (h.h / fmt.h) * 100 + '%';
+        b.title = f.label;
+        hitLayer.appendChild(b);
+      });
+    }
     hitLayer.hidden = !!playing;
+    if (selKey && !fieldOf(selKey)) select(null);
+    placeSel();
+    if (textKey) placeText();
     if (edKey) placeEditor();
   }
+
+  // Seçim çerçevesi
+  function placeSel() {
+    const h = selKey && merged.get(selKey);
+    if (!h || playing) { selBox.hidden = true; return; }
+    const fmt = fmtOf(state.fmtId);
+    selBox.hidden = !!textKey;
+    Object.assign(selBox.style, { left: (h.x / fmt.w) * 100 + '%', top: (h.y / fmt.h) * 100 + '%', width: (h.w / fmt.w) * 100 + '%', height: (h.h / fmt.h) * 100 + '%' });
+    selBox.classList.toggle('nohandles', !h.movable || !!textKey);
+    selBox.classList.toggle('low', h.y < fmt.h * 0.06);
+    const f = fieldOf(selKey), s = curOv(selKey).s;
+    $('#selTag').textContent = drag && drag.mode === 'resize' ? `%${Math.round((s || 1) * 100)}` : f ? shortLabel(f) : '';
+  }
+  const shortLabel = (f) => f.label.replace(/\s*\(.*\)\s*/g, '');
+  function select(key) {
+    if (key === selKey) return;
+    if (textKey && textKey !== key) endText();
+    if (edKey && edKey !== key) closeEditor();
+    selKey = key;
+    placeSel(); buildCtx();
+  }
+
+  // Tuval koordinatı
+  function toCanvas(e) {
+    const r = cv.getBoundingClientRect(), k = r.width / fmtOf(state.fmtId).w;
+    return { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k, k };
+  }
+
+  // Hizalama kılavuzları: tuval ortası, kenar boşlukları ve öğenin ilk yeri
+  function snapMove(h0, o0, dx, dy, k) {
+    const fmt = fmtOf(state.fmtId), u = Math.min(fmt.w, fmt.h) / 1080, m = (fmt.w > fmt.h ? 96 : 88) * u;
+    const th = 7 / k;
+    let nx = (o0.dx || 0) + dx, ny = (o0.dy || 0) + dy;
+    const gx = [], gy = [];
+    const L = h0.x + dx, T = h0.y + dy;
+    const vx = [[fmt.w / 2, L + h0.w / 2], [m, L], [fmt.w - m - (fmt.safeRight || 0) * u, L + h0.w]];
+    let best = null;
+    vx.forEach(([line, edge]) => { const d = line - edge; if (Math.abs(d) < th && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, line }; });
+    if (Math.abs(nx) < th && (!best || Math.abs(nx) < Math.abs(best.d))) best = { d: -nx, line: null };
+    if (best) { nx += best.d; if (best.line != null) gx.push(best.line); }
+    let bestY = null;
+    [[fmt.h / 2, T + h0.h / 2]].forEach(([line, edge]) => { const d = line - edge; if (Math.abs(d) < th) bestY = { d, line }; });
+    if (Math.abs(ny) < th && (!bestY || Math.abs(ny) < Math.abs(bestY.d))) bestY = { d: -ny, line: null };
+    if (bestY) { ny += bestY.d; if (bestY.line != null) gy.push(bestY.line); }
+    guides.innerHTML = gx.map((x) => `<i class="v" style="left:${(x / fmt.w) * 100}%"></i>`).join('') + gy.map((y) => `<i class="h" style="top:${(y / fmt.h) * 100}%"></i>`).join('');
+    return { dx: nx, dy: ny };
+  }
+
+  hitLayer.addEventListener('pointerdown', (e) => {
+    if (playing || e.button > 0) return;
+    const el = e.target.closest('[data-key]');
+    if (!el) { select(null); return; }
+    e.preventDefault();
+    const key = el.dataset.key, h = merged.get(key), f = fieldOf(key);
+    const wasSel = selKey === key;
+    select(key);
+    const p = toCanvas(e), d = dataOf(tplOf(state.tplId));
+    const pan = f.type === 'image' && wasSel && d[key] && (key + '_fx') in d && key !== 'afis';
+    drag = { mode: h.movable ? 'move' : pan ? 'pan' : 'none', key, p0: p, h0: { ...h }, o0: { ...curOv(key) }, f0: pan ? { x: d[key + '_fx'], y: d[key + '_fy'] } : null, moved: false, wasSel, id: e.pointerId };
+    try { hitLayer.setPointerCapture(e.pointerId); } catch (x) { /* yok say */ }
+  });
+  selBox.addEventListener('pointerdown', (e) => {
+    const hd = e.target.closest('[data-h]');
+    if (!hd || !selKey) return;
+    e.preventDefault(); e.stopPropagation();
+    const h = merged.get(selKey);
+    drag = { mode: 'resize', corner: hd.dataset.h, key: selKey, p0: toCanvas(e), h0: { ...h }, o0: { ...curOv(selKey) }, moved: false, id: e.pointerId };
+    try { hd.setPointerCapture(e.pointerId); } catch (x) { /* yok say */ }
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const p = toCanvas(e), dx = p.x - drag.p0.x, dy = p.y - drag.p0.y;
+    if (!drag.moved && Math.hypot(dx, dy) * p.k < 4) return;
+    if (!drag.moved) { drag.moved = true; hitLayer.classList.add('dragging'); if (textKey) endText(); closeEditor(); }
+    const { h0, o0 } = drag;
+    if (drag.mode === 'move') {
+      const r = snapMove(h0, o0, dx, dy, p.k);
+      setOvLive(drag.key, r);
+    } else if (drag.mode === 'pan') {
+      const d = dataOf(tplOf(state.tplId)), cl = (v) => Math.max(0, Math.min(1, v));
+      d[drag.key + '_fx'] = cl(drag.f0.x - dx / h0.w); d[drag.key + '_fy'] = cl(drag.f0.y - dy / h0.h);
+      scheduleRender();
+    } else if (drag.mode === 'resize') {
+      const c = drag.corner, s0 = o0.s || 1;
+      const A = { x: c.includes('w') ? h0.x + h0.w : h0.x, y: c.includes('n') ? h0.y + h0.h : h0.y };
+      const C = { x: c.includes('w') ? h0.x : h0.x + h0.w, y: c.includes('n') ? h0.y : h0.y + h0.h };
+      const vx = C.x - A.x, vy = C.y - A.y, P = { x: C.x + dx, y: C.y + dy };
+      const ratio = ((P.x - A.x) * vx + (P.y - A.y) * vy) / (vx * vx + vy * vy);
+      const s = Math.max(0.3, Math.min(4, s0 * ratio)), w = (h0.w / s0) * s, hh = (h0.h / s0) * s;
+      const nx = c.includes('w') ? A.x - w : A.x, ny = c.includes('n') ? A.y - hh : A.y;
+      setOvLive(drag.key, { s, dx: (o0.dx || 0) + nx - h0.x, dy: (o0.dy || 0) + ny - h0.y });
+    }
+  });
+  // sürükleme sırasında geçmişe tek tek yazmadan güncelle
+  function setOvLive(key, patch) { holdHistory = true; setOv(key, patch); holdHistory = false; }
+  function endDrag(e) {
+    if (!drag || (e && e.pointerId !== drag.id)) return;
+    const d0 = drag; drag = null;
+    hitLayer.classList.remove('dragging'); guides.innerHTML = '';
+    if (d0.moved) { saveState(); scheduleRender(); buildCtx(); return; }
+    // sürüklenmeden bırakıldı: seçiliyse düzenlemeye geç
+    if (d0.mode !== 'resize' && d0.wasSel) activate(d0.key);
+    scheduleRender();
+  }
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+  hitLayer.addEventListener('dblclick', (e) => { const el = e.target.closest('[data-key]'); if (el) { select(el.dataset.key); activate(el.dataset.key); } });
+  $('#stageBox').addEventListener('pointerdown', (e) => { if (e.target === $('#stageBox')) { select(null); } });
+
+  // Seçili öğeyi düzenle: yazılar yerinde, tarih ve fotoğraflar küçük pencerede
+  function activate(key) {
+    const f = fieldOf(key), h = merged.get(key); if (!f) return;
+    if ((f.type === 'text' || f.type === 'textarea' || f.type === 'select') && h && h.fs) startText(key);
+    else openEditor(key);
+  }
+
+  // Yerinde yazı düzenleme: tuvaldeki yazı gizlenir, aynı yazı tipi ve boyutta bir metin kutusu üstüne gelir
+  function startText(key) {
+    closeEditor();
+    const d = dataOf(tplOf(state.tplId));
+    textKey = key;
+    textEd.value = d[key] || '';
+    textEd.hidden = false;
+    placeText();
+    textEd.focus();
+    textEd.select();
+    placeSel(); buildCtx(); scheduleRender();
+  }
+  function placeText() {
+    const h = merged.get(textKey); if (!h) return;
+    const k = scaleK();
+    Object.assign(textEd.style, {
+      left: (h.bx != null ? h.bx : h.x) * k + 'px', top: h.y * k + 'px', width: Math.max(80, (h.bw || h.w) * (h.wr || 1) * k + 4) + 'px',
+      font: `${h.weight || 600} ${h.fs * k}px "Instrument Sans", sans-serif`, lineHeight: (h.lh || h.fs * 1.2) * k + 'px',
+      letterSpacing: (h.ls || 0) + 'em', color: h.color || '#111', textAlign: h.align || 'left', paddingLeft: (h.pad || 0) * k + 'px',
+    });
+    textEd.style.height = 'auto';
+    textEd.style.height = Math.max(h.h * k, textEd.scrollHeight) + 'px';
+  }
+  textEd.addEventListener('input', () => {
+    const f = fieldOf(textKey);
+    if (f && f.type !== 'textarea') textEd.value = textEd.value.replace(/\n/g, ' ');
+    setVal(textKey, textEd.value);
+  });
+  textEd.addEventListener('keydown', (e) => {
+    const f = fieldOf(textKey);
+    if (e.key === 'Escape' || (e.key === 'Enter' && f && f.type !== 'textarea' && !e.shiftKey)) { e.preventDefault(); endText(); }
+    e.stopPropagation();
+  });
+  textEd.addEventListener('blur', () => setTimeout(() => { if (textKey && document.activeElement !== textEd) endText(); }, 120));
+  function endText() {
+    if (!textKey) return;
+    textKey = null; textEd.hidden = true;
+    saveState(); placeSel(); buildCtx(); buildFields(); scheduleRender(); scheduleThumbs();
+  }
+
+  // Küçük düzenleyici (tarih, fotoğraf, seçmeli alanlar ve yerinde yazılamayan bilgiler)
   function placeEditor() {
     if (window.innerWidth <= 900) { ed.style.left = ''; ed.style.top = ''; return; }
-    const fmt = fmtOf(state.fmtId), k = cv.clientWidth / fmt.w;
-    const h = lastHits.find((x) => x.key === edKey);
+    const k = scaleK();
+    const h = merged.get(edKey);
     const wrap = $('#cvWrap'), box = $('#stageBox');
-    const ox = wrap.offsetLeft, oy = wrap.offsetTop;
-    let left = ox + (h ? h.x * k : 20), top = oy + (h ? (h.y + h.h) * k + 10 : 20);
-    const ew = ed.offsetWidth || 400, eh = ed.offsetHeight || 160;
+    const ox = wrap.offsetLeft - box.scrollLeft, oy = wrap.offsetTop - box.scrollTop;
+    let left = ox + (h ? h.x * k : 20), top = oy + (h ? (h.y + h.h) * k + 14 : 20);
+    const ew = ed.offsetWidth || 380, eh = ed.offsetHeight || 160;
     left = Math.max(8, Math.min(left, box.clientWidth - ew - 8));
-    if (top + eh > box.clientHeight - 8 && h) top = Math.max(8, oy + h.y * k - eh - 10);
-    ed.style.left = left + 'px'; ed.style.top = Math.max(8, top) + 'px';
+    if (top + eh > box.clientHeight - 8 && h) top = Math.max(8, oy + h.y * k - eh - 14);
+    ed.style.left = left + box.scrollLeft + 'px'; ed.style.top = Math.max(8, top) + box.scrollTop + 'px';
   }
   function setVal(key, v) { const d = dataOf(tplOf(state.tplId)); d[key] = v; saveState(); scheduleRender(); }
+  async function pickPhoto(key) {
+    const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*';
+    i.onchange = async () => { const file = i.files[0]; if (!file) return; try { const src = await loadPhoto(file); addUpload(src); placeImage(src, key); } catch (x) { status('Görsel okunamadı.', true); } };
+    i.click();
+  }
   function openEditor(key) {
     const f = fieldOf(key); if (!f) return;
     const d = dataOf(tplOf(state.tplId));
+    if (textKey) endText();
     edKey = key;
     $('#ieLabel').textContent = f.label;
     const body = $('#ieBody');
     body.innerHTML = '';
     if (f.type === 'image') {
       body.innerHTML = `${d[key] ? `<img class="thumb" src="${d[key]}" alt="" />` : ''}
-        <div class="row"><label class="btnlike">${d[key] ? 'Fotoğrafı değiştir' : 'Fotoğraf seç'}<input type="file" accept="image/*" hidden /></label>${d[key] ? '<button type="button" class="link" data-rm>Kaldır</button>' : ''}</div>
-        ${d[key] ? `<div class="row">Yatay odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fx']}" data-k="${key}_fx" /></div><div class="row">Dikey odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fy']}" data-k="${key}_fy" /></div>` : ''}`;
-      body.querySelector('input[type=file]').onchange = async (e) => { const file = e.target.files[0]; if (!file) return; try { d[key] = await loadPhoto(file); d[key + '_fx'] = 0.5; d[key + '_fy'] = 0.5; } catch (x) { status('Görsel okunamadı.', true); return; } saveState(); refresh(); openEditor(key); };
+        <div class="row"><button type="button" data-pick>${d[key] ? 'Fotoğrafı değiştir' : 'Fotoğraf seç'}</button>${d[key] ? '<button type="button" class="link" data-rm>Kaldır</button>' : ''}</div>
+        ${d[key] && (key + '_fx') in d ? `<div class="row">Yatay odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fx']}" data-k="${key}_fx" /></div><div class="row">Dikey odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fy']}" data-k="${key}_fy" /></div><small class="muted">İpucu: fotoğraf seçiliyken sürükleyerek de kadrajı kaydırabilirsiniz.</small>` : ''}`;
+      body.querySelector('[data-pick]').onclick = () => pickPhoto(key);
       const rm = body.querySelector('[data-rm]'); if (rm) rm.onclick = () => { d[key] = ''; saveState(); closeEditor(); refresh(); };
       body.querySelectorAll('input[type=range]').forEach((r) => { r.oninput = () => setVal(r.dataset.k, +r.value); });
     } else {
@@ -246,20 +443,221 @@
       setTimeout(() => { inp.focus(); if (inp.select && inp.type !== 'date') inp.select(); }, 30);
     }
     ed.hidden = false;
-    hitLayer.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.title === f.label));
     placeEditor();
   }
   function closeEditor() {
     if (!edKey) return;
     edKey = null; ed.hidden = true;
-    hitLayer.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
-    buildFields(); buildQuick(); scheduleThumbs();
+    buildFields(); buildCtx(); scheduleThumbs();
   }
   $('#ieDone').onclick = closeEditor;
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeEditor(); });
-  document.addEventListener('pointerdown', (e) => { if (edKey && !ed.contains(e.target) && !hitLayer.contains(e.target)) closeEditor(); });
+  document.addEventListener('pointerdown', (e) => {
+    if (edKey && !ed.contains(e.target) && !hitLayer.contains(e.target) && !$('#ctxBar').contains(e.target)) closeEditor();
+    if (!e.target.closest('.menu')) closeMenus();
+  });
 
-  // Önizleme üstündeki hızlı düğmeler: fotoğraf, afiş, logo gibi görselde bulunmayabilecek alanlar
+  // ------------------------------------------------------------ Bağlam araç çubuğu (seçime göre değişir)
+  const PALETTE = () => [['Siyah', brand.colors.ink], ['Kırmızı', brand.colors.red], ['Lacivert', brand.colors.navy], ['Altın', brand.colors.gold], ['Gri', brand.colors.grey], ['Beyaz', '#FFFFFF']];
+  function buildCtx() {
+    const bar = $('#ctxBar'), tpl = tplOf(state.tplId), d = dataOf(tpl);
+    bar.innerHTML = '';
+    const add = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); const el = t.content.firstChild; bar.appendChild(el); return el; };
+    const btn = (label, fn, cls = '', title = '') => { const b = add(`<button type="button" class="cb ${cls}" ${title ? `title="${esc(title)}"` : ''}>${label}</button>`); b.onclick = fn; return b; };
+    const sep = () => add('<span class="sep"></span>');
+    if (!selKey) {
+      add('<span class="tag">Sayfa</span>');
+      if (!tpl.mono) {
+        const dots = add('<span class="dots" title="Zemin"></span>');
+        const gcol = { beyaz: '#ffffff', lacivert: brand.colors.navy, siyah: '#111111', kirmizi: brand.colors.red };
+        [{ id: 'oto', name: 'Otomatik zemin' }].concat(GROUNDS).forEach((g) => {
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'dot' + (g.id === 'oto' ? ' auto' : '');
+          if (g.id !== 'oto') b.style.background = gcol[g.id] || '#fff';
+          b.title = g.name + (g.id === 'oto' ? '' : ' zemin'); b.setAttribute('aria-label', b.title);
+          b.setAttribute('aria-pressed', state.ground === g.id);
+          b.onclick = () => { state.ground = g.id; refresh(); };
+          dots.appendChild(b);
+        });
+        sep();
+      }
+      const lays = tpl.layouts || ['kutu'];
+      if (lays.length > 1) {
+        const autoLay = tpl.layoutOf ? tpl.layoutOf(d) : 'kutu';
+        const s = add(`<select title="Yerleşim" aria-label="Yerleşim">${[['oto', `Yerleşim: otomatik (${LAYOUTS[autoLay]})`]].concat(lays.map((k) => [k, LAYOUTS[k]])).map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('')}</select>`);
+        s.value = state.layouts[tpl.id] || 'oto';
+        s.onchange = () => { state.layouts[tpl.id] = s.value; refresh(); };
+        sep();
+      }
+      btn('▶ Animasyon', () => { if (!playing) animate(4.5); });
+      add('<span class="hint">Düzenlemek için görseldeki bir öğeye tıklayın.</span>');
+      return;
+    }
+    const f = fieldOf(selKey), h = merged.get(selKey) || {}, ov = curOv(selKey);
+    if (!f) return;
+    add(`<span class="tag">${esc(shortLabel(f))}</span>`);
+    if (f.type === 'image') {
+      btn(d[selKey] ? 'Değiştir' : 'Fotoğraf seç', () => pickPhoto(selKey));
+      if (d[selKey]) {
+        if ((selKey + '_fx') in d) btn('Kadraj', () => openEditor(selKey), '', 'Odak noktası');
+        btn('Kaldır', () => { d[selKey] = ''; saveState(); select(null); refresh(); }, 'danger');
+        if ((selKey + '_fx') in d) add('<span class="hint">Seçiliyken sürükleyerek kadrajı kaydırın.</span>');
+      }
+      return;
+    }
+    if (f.type === 'date') {
+      const i = add(`<input type="date" aria-label="${esc(f.label)}" />`);
+      i.value = d[selKey] || '';
+      i.oninput = i.onchange = () => setVal(selKey, i.value);
+    } else if (f.type === 'select') {
+      const opts = f.options.slice(); if (d[selKey] && !opts.includes(d[selKey])) opts.push(d[selKey]);
+      const s = add(`<select aria-label="${esc(f.label)}">${opts.map((o) => `<option>${esc(o)}</option>`).join('')}</select>`);
+      s.value = d[selKey] || '';
+      s.onchange = () => { setVal(selKey, s.value); buildFields(); };
+      btn('✎ Yaz', () => activate(selKey), '', 'Kendi metninizi yazın');
+    } else {
+      btn('✎ Metni düzenle', () => activate(selKey), textKey ? '' : '', 'Çift tıklayarak da düzenleyebilirsiniz');
+    }
+    if (!h.movable) { add('<span class="hint">Bu bilgi sabit yerinde durur.</span>'); return; }
+    sep();
+    const sz = add(`<span class="size" title="Boyut"><button type="button" aria-label="Küçült">A−</button><span>%${Math.round((ov.s || 1) * 100)}</span><button type="button" aria-label="Büyüt">A+</button></span>`);
+    const step = (dir) => { const s0 = ov.s || 1; setOv(selKey, { s: Math.max(0.3, Math.min(4, Math.round((s0 + dir * 0.1) * 10) / 10)) }); buildCtx(); };
+    sz.children[0].onclick = () => step(-1); sz.children[2].onclick = () => step(1);
+    sep();
+    const dots = add('<span class="dots" title="Renk — yalnızca marka paleti"></span>');
+    [['Otomatik', null]].concat(PALETTE()).forEach(([n, c]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'dot' + (c ? '' : ' auto');
+      if (c) b.style.background = c;
+      b.title = n; b.setAttribute('aria-label', 'Renk: ' + n);
+      b.setAttribute('aria-pressed', (ov.color || null) === c);
+      b.onclick = () => { setOv(selKey, { color: c }); buildCtx(); };
+      dots.appendChild(b);
+    });
+    sep();
+    if (ov.dx || ov.dy || (ov.s && ov.s !== 1)) btn('⌖ Konumu sıfırla', () => { setOv(selKey, { dx: null, dy: null, s: null }); buildCtx(); });
+    btn('🗑 Sil', () => removeSel(), 'danger', 'Öğeyi sil (Delete)');
+  }
+  function removeSel() {
+    if (!selKey) return;
+    const f = fieldOf(selKey), h = merged.get(selKey), d = dataOf(tplOf(state.tplId));
+    if (f.type === 'image') { d[selKey] = ''; saveState(); select(null); refresh(); return; }
+    if (h && h.movable) { const k = selKey; select(null); setOv(k, { hidden: true }); buildHidden(); status(`“${shortLabel(f)}” silindi. Geri almak için Ctrl+Z ya da Metin panelinden geri getirin.`); }
+  }
+  function buildHidden() {
+    const el = $('#hiddenList'), tpl = tplOf(state.tplId), all = (state.ov[tpl.id] && state.ov[tpl.id].all) || {};
+    el.innerHTML = '';
+    Object.keys(all).filter((k) => all[k].hidden && fieldOf(k)).forEach((k) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = '↺ ' + shortLabel(fieldOf(k));
+      b.onclick = () => { setOv(k, { hidden: null }); buildHidden(); };
+      el.appendChild(b);
+    });
+  }
+
+  // ------------------------------------------------------------ Geri al / yinele
+  // Anlık görüntüler yapısal kopyadır; fotoğraf (data URL) dizeleri paylaşılır, bellek şişmez.
+  const cp = (o) => (Array.isArray(o) ? o.map(cp) : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, cp(v)])) : o);
+  const snap = () => cp({ tplId: state.tplId, fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, slide: state.slide, layouts: state.layouts, data: state.data, ov: state.ov });
+  const sig = (o) => JSON.stringify(o, (k, v) => (typeof v === 'string' && v.length > 300 ? v.length + ':' + v.slice(-48) : v));
+  let hist = [], hIdx = -1, histTimer, holdHistory = false, restoring = false;
+  function commit() {
+    if (restoring) return;
+    const s = snap(), g = sig(s);
+    if (hIdx >= 0 && hist[hIdx].g === g) return;
+    hist = hist.slice(0, hIdx + 1); hist.push({ s, g });
+    if (hist.length > 80) hist.shift();
+    hIdx = hist.length - 1; histBtns();
+  }
+  function scheduleCommit() { if (holdHistory || restoring) return; clearTimeout(histTimer); histTimer = setTimeout(commit, 350); }
+  function histBtns() { $('#btnUndo').disabled = hIdx <= 0; $('#btnRedo').disabled = hIdx >= hist.length - 1; }
+  function go(dir) {
+    clearTimeout(histTimer); commit();
+    const i = hIdx + dir; if (i < 0 || i >= hist.length) return;
+    hIdx = i; restoring = true;
+    if (textKey) { textKey = null; textEd.hidden = true; }
+    Object.assign(state, cp(hist[i].s));
+    if (selKey && !fieldOf(selKey)) selKey = null;
+    refresh(); buildHidden(); restoring = false; histBtns();
+  }
+  $('#btnUndo').onclick = () => go(-1);
+  $('#btnRedo').onclick = () => go(1);
+
+  // Klavye kısayolları
+  document.addEventListener('keydown', (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === 'z' && !textKey) { if (isTyping()) return; e.preventDefault(); go(e.shiftKey ? 1 : -1); return; }
+    if (mod && e.key.toLowerCase() === 'y' && !isTyping()) { e.preventDefault(); go(1); return; }
+    if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); setZoom(curK() * 1.2); return; }
+    if (mod && e.key === '-') { e.preventDefault(); setZoom(curK() / 1.2); return; }
+    if (mod && e.key === '0') { e.preventDefault(); setZoom(null); return; }
+    if (e.key === 'Escape') { if (edKey) closeEditor(); else if (textKey) endText(); else if (document.querySelector('.menu-pop:not([hidden])')) closeMenus(); else select(null); return; }
+    if (isTyping() || !selKey) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSel(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); activate(selKey); return; }
+    const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const h = merged.get(selKey);
+    if (arrows[e.key] && h && h.movable) {
+      e.preventDefault();
+      const [ax, ay] = arrows[e.key], st = e.shiftKey ? 10 : 2, o = curOv(selKey);
+      setOv(selKey, { dx: (o.dx || 0) + ax * st, dy: (o.dy || 0) + ay * st });
+    }
+  });
+
+  // ------------------------------------------------------------ Yüklemeler
+  const uploads = [];
+  function addUpload(src) { if (!uploads.includes(src)) uploads.unshift(src); buildUploads(); }
+  function buildUploads() {
+    const tpl = tplOf(state.tplId), seen = new Set(uploads), list = uploads.slice();
+    Object.values(state.data).forEach((d) => Object.keys(d).forEach((k) => {
+      const f = TPLS.some((t) => t.fields.some((x) => x.key === k && (x.type === 'image' || x.type === 'images')));
+      if (!f) return;
+      [].concat(d[k]).forEach((v) => { if (typeof v === 'string' && v.startsWith('data:image') && !seen.has(v)) { seen.add(v); list.push(v); } });
+    }));
+    const g = $('#upGrid'); g.innerHTML = '';
+    list.slice(0, 40).forEach((src) => {
+      const img = document.createElement('img'); img.src = src; img.alt = ''; img.draggable = true; img.title = 'Tasarıma ekle';
+      img.onclick = () => placeImage(src);
+      img.ondragstart = (e) => { dragSrc = src; e.dataTransfer.setData('text/plain', 'ilef-upload'); e.dataTransfer.effectAllowed = 'copy'; };
+      g.appendChild(img);
+    });
+    void tpl;
+  }
+  let dragSrc = null;
+  // Fotoğrafı bir görsel alanına yerleştir: seçili alan > bırakılan yer > ilk boş alan > ilk alan; karuselde sayfa olarak eklenir
+  function placeImage(src, key) {
+    const tpl = tplOf(state.tplId), d = dataOf(tpl);
+    const imgs = tpl.fields.filter((f) => f.type === 'image');
+    let target = key && fieldOf(key) && fieldOf(key).type === 'image' ? key : null;
+    if (!target && selKey && fieldOf(selKey) && fieldOf(selKey).type === 'image') target = selKey;
+    const many = tpl.fields.find((f) => f.type === 'images');
+    if (!target && many && imgs.every((f) => d[f.key])) {
+      const arr = Array.isArray(d[many.key]) ? d[many.key] : (d[many.key] = []);
+      if (arr.length < 9) { arr.push(src); saveState(); refresh(); status('Fotoğraf yeni sayfa olarak eklendi.'); return; }
+    }
+    if (!target) target = (imgs.find((f) => !d[f.key]) || imgs[0] || {}).key;
+    if (!target) { status('Bu şablonda fotoğraf alanı yok.', true); return; }
+    d[target] = src; if ((target + '_fx') in d || fieldOf(target).type === 'image') { d[target + '_fx'] = 0.5; d[target + '_fy'] = 0.5; }
+    saveState(); refresh(); selKey = null; select(target);
+  }
+  $('#fileUp').onchange = async (e) => {
+    const files = [...e.target.files]; e.target.value = '';
+    for (const file of files) { try { addUpload(await loadPhoto(file)); } catch (x) { status('Görsel okunamadı.', true); } }
+    if (files.length === 1 && uploads[0]) placeImage(uploads[0]);
+  };
+  // Tuvale sürükle-bırak: yüklemelerden ya da bilgisayardan
+  const wrapEl = $('#cvWrap');
+  const imgKeyAt = (e) => { const p = toCanvas(e); const h = [...merged.values()].filter((x) => fieldOf(x.key).type === 'image' && p.x >= x.x && p.x <= x.x + x.w && p.y >= x.y && p.y <= x.y + x.h).sort((a, b) => a.w * a.h - b.w * b.h)[0]; return h ? h.key : null; };
+  $('#stageBox').addEventListener('dragover', (e) => { e.preventDefault(); wrapEl.classList.add('dropping'); });
+  $('#stageBox').addEventListener('dragleave', (e) => { if (!$('#stageBox').contains(e.relatedTarget)) wrapEl.classList.remove('dropping'); });
+  $('#stageBox').addEventListener('drop', async (e) => {
+    e.preventDefault(); wrapEl.classList.remove('dropping');
+    const key = imgKeyAt(e);
+    if (e.dataTransfer.files && e.dataTransfer.files.length) {
+      const file = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'));
+      if (!file) return;
+      try { const src = await loadPhoto(file); addUpload(src); placeImage(src, key); } catch (x) { status('Görsel okunamadı.', true); }
+    } else if (dragSrc) { placeImage(dragSrc, key); }
+    dragSrc = null;
+  });
+
+  // Yüklemeler panelindeki görsel alanları listesi
   function buildQuick() {
     const tpl = tplOf(state.tplId), d = dataOf(tpl), bar = $('#quickBar');
     bar.innerHTML = '';
@@ -267,16 +665,46 @@
       const has = f.type === 'image' ? !!d[f.key] : Array.isArray(d[f.key]) && d[f.key].length;
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'qb' + (has ? '' : ' empty');
-      const short = f.label.replace(/\s*\(.*\)\s*/g, '');
       const n = Array.isArray(d[f.key]) ? d[f.key].length : 0;
-      b.innerHTML = f.type === 'image' && has ? `<img src="${d[f.key]}" alt="" />${esc(short)}` : `${has ? '' : '+ '}${esc(short)}${n ? ` (${n})` : ''}`;
+      b.innerHTML = `${f.type === 'image' && has ? `<img src="${d[f.key]}" alt="" />` : `<span class="ph">${has ? '▦' : '+'}</span>`}<span>${esc(shortLabel(f))}${n ? ` (${n})` : ''}<small>${f.type === 'image' ? (has ? 'Değiştirmek için tıklayın' : 'Fotoğraf seçin') : f.type === 'images' ? 'Sayfa ekle / düzenle' : 'Logo ekle / düzenle'}</small></span>`;
       b.onclick = () => {
-        if (f.type === 'image') { if (has) openEditor(f.key); else { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = async () => { const file = i.files[0]; if (!file) return; d[f.key] = await loadPhoto(file); d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; saveState(); refresh(); }; i.click(); } }
-        else { const det = $('#allFields'); det.open = true; const lab = [...document.querySelectorAll('#fields .imgfield > span')].find((sp) => sp.textContent === f.label); (lab || det).scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        if (f.type === 'image') pickPhoto(f.key);
+        else { openPanel('metin'); const lab = [...document.querySelectorAll('#fields .imgfield > span')].find((sp) => sp.textContent === f.label); if (lab) lab.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       };
       bar.appendChild(b);
     });
   }
+
+  // ------------------------------------------------------------ Paneller, menüler, yakınlaştırma
+  const appEl = document.querySelector('.app');
+  let curPanel = window.innerWidth <= 900 ? null : 'sablon';
+  function openPanel(id) {
+    curPanel = id;
+    document.querySelectorAll('.rail [data-panel]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.panel === id));
+    document.querySelectorAll('#panel > section[data-p]').forEach((s) => { s.hidden = s.dataset.p !== id; });
+    appEl.classList.toggle('collapsed', !id);
+    if (id === 'yukle') buildUploads();
+    if (id === 'paylas') { shareDraft(); updateChecks(); drawGrid(); }
+    if (id) $('#panel').scrollTop = 0;
+    requestAnimationFrame(fitCanvas);
+  }
+  document.querySelectorAll('.rail [data-panel]').forEach((b) => { b.onclick = () => openPanel(curPanel === b.dataset.panel ? null : b.dataset.panel); });
+  $('#panelClose').onclick = () => openPanel(null);
+
+  function closeMenus() { document.querySelectorAll('.menu-pop').forEach((m) => { m.hidden = true; }); }
+  document.querySelectorAll('[data-menu]').forEach((b) => {
+    b.onclick = (e) => { e.stopPropagation(); const m = $('#' + b.dataset.menu), was = !m.hidden; closeMenus(); m.hidden = was; };
+  });
+  document.querySelectorAll('.menu-pop').forEach((m) => m.addEventListener('click', (e) => { if (e.target.closest('button:not(#btnVideo), a')) setTimeout(closeMenus, 0); }));
+
+  let zoom = null; // null = ekrana sığdır
+  const curK = () => cv.clientWidth / fmtOf(state.fmtId).w || 0.5;
+  function setZoom(k) { zoom = k == null ? null : Math.max(0.1, Math.min(2, k)); fitCanvas(); }
+  $('#zoomIn').onclick = () => setZoom(curK() * 1.2);
+  $('#zoomOut').onclick = () => setZoom(curK() / 1.2);
+  $('#zoomFit').onclick = () => setZoom(null);
+  $('#zoomRange').oninput = (e) => setZoom(+e.target.value / 100);
+  $('#stageBox').addEventListener('wheel', (e) => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); setZoom(curK() * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
 
   // ------------------------------------------------------------ Arayüz
   function status(msg, err) {
@@ -295,7 +723,7 @@
       b.title = t.desc;
       b.setAttribute('aria-pressed', t.id === state.tplId);
       b.innerHTML = `<canvas width="240" height="240" data-id="${t.id}"></canvas><b>${t.name}</b>`;
-      b.onclick = () => { state.tplId = t.id; refresh(); };
+      b.onclick = () => { if (state.tplId !== t.id) { select(null); state.tplId = t.id; state.slide = 0; refresh(); } };
       g.appendChild(b);
     });
     const p = document.createElement('p');
@@ -318,15 +746,19 @@
     });
   }
 
+  const logoSrc = (l) => { const src = l.light || l.dark; return src ? (window.LOGO_DATA && window.LOGO_DATA[src]) || src : null; };
   function buildUnits() {
-    const sel = $('#unitSel');
-    const groups = [['bolum', 'Bölümler'], ['atolye', 'Atölye / birimler']];
-    sel.innerHTML = '<option value="">— Yalnızca fakülte —</option>' + groups.map(([g, n]) => {
-      const items = brand.logos.filter((l) => l.group === g);
-      return items.length ? `<optgroup label="${n}">${items.map((l) => `<option value="${l.id}">${esc(l.name)}${l.dark || l.light ? '' : ' (logo yok)'}</option>`).join('')}</optgroup>` : '';
-    }).join('');
+    const g = $('#unitGrid');
     if (!unitOf()) state.unitId = '';
-    sel.value = state.unitId;
+    const ilef = brand.logos.find((l) => l.id === 'ilef');
+    let html = `<button type="button" data-u="" aria-pressed="${!state.unitId}">${ilef && logoSrc(ilef) ? `<img src="${logoSrc(ilef)}" alt="" />` : ''}Yalnızca fakülte</button>`;
+    [['bolum', 'Bölümler'], ['atolye', 'Atölye / birimler']].forEach(([grp, n]) => {
+      const items = brand.logos.filter((l) => l.group === grp);
+      if (!items.length) return;
+      html += `<h4>${n}</h4>` + items.map((l) => `<button type="button" data-u="${l.id}" aria-pressed="${l.id === state.unitId}">${logoSrc(l) ? `<img src="${logoSrc(l)}" alt="" />` : '<em>logo yok</em>'}${esc(l.name)}</button>`).join('');
+    });
+    g.innerHTML = html;
+    g.querySelectorAll('[data-u]').forEach((b) => { b.onclick = () => { state.unitId = b.dataset.u; refresh(); }; });
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -407,7 +839,11 @@
     const tpl = tplOf(state.tplId);
     document.querySelectorAll('.tpl').forEach((b) => b.setAttribute('aria-pressed', b.querySelector('canvas').dataset.id === tpl.id));
     $('#tplDesc').textContent = tpl.desc + (tpl.mono ? ' · Bu türde renk ve hareket kullanılmaz.' : '');
-    buildChips($('#fmtSeg'), FORMATS, state.fmtId, (id) => { state.fmtId = id; refresh(); }, (f) => `${f.name}<small>${f.hint}</small>`);
+    const fmt = fmtOf(state.fmtId);
+    $('#fmtSeg').innerHTML = FORMATS.map((f) => { const r = f.w / f.h, w = r >= 1 ? 26 : Math.round(26 * r), h = r >= 1 ? Math.round(26 / r) : 26; return `<button type="button" data-f="${f.id}" aria-pressed="${f.id === state.fmtId}"><span class="shape" style="width:${w}px;height:${h}px"></span><span><b>${esc(f.name)}</b><small>${f.w}×${f.h} px · ${esc(f.hint)}</small></span></button>`; }).join('');
+    $('#fmtSeg').querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { if (b.dataset.f !== state.fmtId) { select(null); state.fmtId = b.dataset.f; zoom = null; refresh(); } closeMenus(); }; });
+    $('#docTitle').textContent = `${tpl.name} · ${fmt.name} · ${fmt.w}×${fmt.h}`;
+    $('#dlNote').textContent = `${fmt.name} · ${fmt.w}×${fmt.h} px`;
     const autoGround = (GROUNDS.find((g) => g.id === (tpl.ground || 'beyaz')) || GROUNDS[0]).name;
     buildChips($('#groundSeg'), [{ id: 'oto', name: `Otomatik · ${autoGround}` }].concat(GROUNDS).map((g) => Object.assign({}, g, { disabled: !!tpl.mono })), state.ground, (id) => { state.ground = id; refresh(); }, (g) => g.name);
     const fill = (sel, items, cur) => { sel.innerHTML = items.map((i) => `<option value="${i.id}">${esc(i.name)}</option>`).join(''); sel.value = cur || 'oto'; };
@@ -415,6 +851,12 @@
     fill($('#meshSel'), [{ id: 'oto', name: `Otomatik · ${(MESHES[tpl.mesh] || MESHES.sicak).name}` }].concat(Object.keys(MESHES).map((k) => ({ id: k, name: MESHES[k].name }))), state.mesh);
     fill($('#motifSel'), [{ id: 'oto', name: `Otomatik · ${(MOTIFS[am] || '').split(' · ')[0]}` }].concat(Object.keys(MOTIFS).map((k) => ({ id: k, name: MOTIFS[k] }))), state.motif);
     $('#meshSel').disabled = $('#motifSel').disabled = !!tpl.mono;
+    const ms = $('#meshSeg');
+    ms.innerHTML = [['oto', `Oto`, (MESHES[tpl.mesh] || MESHES.sicak).colors]].concat(Object.keys(MESHES).map((k) => [k, MESHES[k].name.split(' ')[0], MESHES[k].colors])).map(([id, n, c]) => {
+      const bg = c ? `radial-gradient(circle at 20% 25%, ${c[0]}aa, transparent 55%), radial-gradient(circle at 85% 30%, ${c[1]}aa, transparent 55%), radial-gradient(circle at 60% 90%, ${c[2]}aa, transparent 60%), #fff` : '#fff';
+      return `<button type="button" data-m="${id}" title="${esc(id === 'oto' ? 'Otomatik' : MESHES[id].name)}" aria-pressed="${(state.mesh || 'oto') === id}" style="background:${bg}" ${tpl.mono ? 'disabled' : ''}><span>${esc(n)}</span></button>`;
+    }).join('');
+    ms.querySelectorAll('[data-m]').forEach((b) => { b.onclick = () => { state.mesh = b.dataset.m; refresh(); }; });
     const lays = tpl.layouts || ['kutu'];
     const autoLay = tpl.layoutOf ? tpl.layoutOf(dataOf(tpl)) : 'kutu';
     buildChips($('#layoutSeg'), [{ id: 'oto', name: `Otomatik · ${LAYOUTS[autoLay]}` }].concat(lays.map((k) => ({ id: k, name: LAYOUTS[k] }))), state.layouts[tpl.id] || 'oto', (id) => { state.layouts[tpl.id] = id; refresh(); }, (l) => l.name);
@@ -424,23 +866,49 @@
     buildSlides();
     buildQuick();
     buildFields();
+    buildHidden();
+    buildCtx();
+    if (curPanel === 'yukle') buildUploads();
     saveState();
     scheduleRender();
   }
 
-  $('#meshSel').onchange = (e) => { state.mesh = e.target.value; refresh(); };
-  $('#motifSel').onchange = (e) => { state.motif = e.target.value; refresh(); };
+    $('#motifSel').onchange = (e) => { state.motif = e.target.value; refresh(); };
   $('#chkBadge').onchange = (e) => { state.badge = e.target.checked; saveState(); scheduleRender(); scheduleThumbs(); };
 
   // Karusel sayfa seçici
   function slideCount() { const tpl = tplOf(state.tplId); return tpl.slides ? tpl.slides(dataOf(tpl)) : 1; }
   function buildSlides() {
-    const n = slideCount(), bar = $('#slideBar');
+    const n = slideCount(), bar = $('#slideBar'), fmt = fmtOf(state.fmtId), tpl = tplOf(state.tplId);
     if (state.slide >= n) state.slide = 0;
-    bar.hidden = n < 2;
-    bar.innerHTML = n < 2 ? '' : '<span>Sayfa</span>' + Array.from({ length: n }, (_, i) => `<button type="button" class="chip" aria-pressed="${i === state.slide}" data-s="${i}">${i ? i + 1 : 'Kapak'}</button>`).join('');
-    bar.querySelectorAll('[data-s]').forEach((b) => { b.onclick = () => { state.slide = +b.dataset.s; buildSlides(); scheduleRender(); }; });
-    $('#btnAll').textContent = n > 1 ? `Tüm sayfalar (${n} PNG)` : 'Tüm formatlar (PNG)';
+    const many = tpl.fields.find((f) => f.type === 'images');
+    const cw = Math.round((92 * fmt.w) / fmt.h);
+    bar.innerHTML = Array.from({ length: n }, (_, i) => `<button type="button" data-s="${i}" aria-pressed="${i === state.slide}" title="${i ? 'Sayfa ' + (i + 1) : n > 1 ? 'Kapak' : 'Sayfa'}"><canvas width="${cw}" height="92"></canvas>${i + 1}</button>`).join('')
+      + (many && n < 10 ? '<button type="button" class="add" title="Sayfa ekle (fotoğraf)">+</button>' : '');
+    bar.querySelectorAll('[data-s]').forEach((b) => { b.onclick = () => { if (state.slide === +b.dataset.s) return; select(null); state.slide = +b.dataset.s; buildSlides(); scheduleRender(); }; });
+    const addB = bar.querySelector('.add');
+    if (addB) addB.onclick = () => {
+      const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.multiple = true;
+      i.onchange = async () => {
+        const d = dataOf(tpl), arr = Array.isArray(d[many.key]) ? d[many.key] : (d[many.key] = []);
+        for (const file of [...i.files].slice(0, 9 - arr.length)) { try { const src = await loadPhoto(file, 2000); arr.push(src); addUpload(src); } catch (x) { status('Fotoğraf okunamadı.', true); } }
+        state.slide = slideCount() - 1; saveState(); refresh();
+      };
+      i.click();
+    };
+    $('#btnAll').innerHTML = n > 1 ? `<i>▤</i>Tüm sayfalar <small>${n} PNG</small>` : '<i>▤</i>Tüm formatlar <small>5 PNG</small>';
+    schedulePages();
+  }
+  let pagesTimer;
+  const pageSrc = document.createElement('canvas');
+  function schedulePages() { clearTimeout(pagesTimer); pagesTimer = setTimeout(drawPages, 450); }
+  function drawPages() {
+    if (playing) return;
+    const fmt = fmtOf(state.fmtId);
+    document.querySelectorAll('#slideBar canvas').forEach((c, i) => {
+      renderTo(pageSrc, fmt, Infinity, undefined, undefined, i);
+      const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); x.drawImage(pageSrc, 0, 0, c.width, c.height);
+    });
   }
 
   // Gömülü görünümlerde confirm()/alert() çalışmayabilir: o durumda onay sormadan devam et, mesajı durum satırında göster
@@ -516,13 +984,13 @@
     const fmt = fmtOf(state.fmtId);
     const start = performance.now();
     playing = { start, dur };
-    closeEditor(); hitLayer.hidden = true;
+    closeEditor(); endText(); hitLayer.hidden = true; selBox.hidden = true;
     const step = (now) => {
       const t = (now - start) / 1000;
       renderTo(cv, fmt, Math.min(t, dur));
       onFrame && onFrame(t);
       if (t < dur && playing) requestAnimationFrame(step);
-      else { playing = null; hitLayer.hidden = false; onEnd && onEnd(); scheduleRender(); }
+      else { playing = null; hitLayer.hidden = false; onEnd && onEnd(); scheduleRender(); placeSel(); }
     };
     requestAnimationFrame(step);
   }
@@ -568,7 +1036,7 @@
   // ------------------------------------------------------------ Taslaklar
   $('#btnSave').onclick = () => {
     const tpl = tplOf(state.tplId);
-    const draft = { tur: 'ilef-studyo-taslak', surum: 3, tplId: tpl.id, layout: state.layouts[tpl.id] || 'oto', fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, data: dataOf(tpl) };
+    const draft = { tur: 'ilef-studyo-taslak', surum: 3, tplId: tpl.id, layout: state.layouts[tpl.id] || 'oto', fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, data: dataOf(tpl), ov: state.ov[tpl.id] || null };
     download(new Blob([JSON.stringify(draft, null, 1)], { type: 'application/json' }), `taslak-${tpl.id}-${today()}.json`);
   };
   $('#fileDraft').onchange = async (e) => {
@@ -581,6 +1049,8 @@
       Object.assign(state, { tplId: d.tplId, fmtId: d.fmtId || state.fmtId, ground: d.ground || 'oto', mesh: d.mesh || 'oto', motif: d.motif || 'oto', badge: !!d.badge, unitId: d.unitId || '', slide: 0 });
       state.data[d.tplId] = d.data;
       if (d.layout) state.layouts[d.tplId] = d.layout;
+      if (d.ov) state.ov[d.tplId] = d.ov; else delete state.ov[d.tplId];
+      selKey = null;
       refresh();
       status('Taslak açıldı.');
     } catch (err) { status('Bu dosya bir stüdyo taslağı değil.', true); }
@@ -589,8 +1059,10 @@
     const tpl = tplOf(state.tplId);
     if (!ask('Bu şablondaki metinler örnek içerikle değiştirilsin mi?')) return;
     state.data[tpl.id] = defaults(tpl);
-    refresh();
+    delete state.ov[tpl.id];
+    select(null); refresh();
   };
+  $('#btnResetPos').onclick = () => { delete state.ov[state.tplId]; select(null); refresh(); status('Bu şablondaki tüm öğeler ilk yerine döndü.'); };
 
   // ------------------------------------------------------------ Marka penceresi
   const dlg = $('#brandDlg');
@@ -704,6 +1176,8 @@
     if (imgField && !d[imgField.key] && ['haber', 'etkinlik', 'kisi', 'karusel'].includes(tpl.id)) items.push(['warn', 'Fotoğraf eklemeyi düşünün.', 'İnsan yüzü içeren fotoğraflar Instagram’da belirgin biçimde daha fazla beğeni ve yorum alıyor (Bakhshi ve ark., CHI 2014).']);
     if (fmt.safeBottom) items.push(['ok', 'Story/Reels güvenli alanı korunuyor.', 'Logo, başlık ve tarih platform arayüzünün altında kalmayacak biçimde yerleştirildi. “Güvenli alanı göster” ile kontrol edebilirsiniz.']);
     if (fmt.id === 'post45') items.push(['ok', 'Profil ızgarası 3:4 kırpar.', 'Önemli içerik kenar boşlukları içinde; ızgarada kesilmez.']);
+    const ovs = ovFor() || {}, lowC = Object.keys(ovs).filter((k) => ovs[k].color && !ovs[k].hidden && fieldOf(k) && contrast(ovs[k].color, pal.bg) < 3);
+    if (lowC.length) items.push(['warn', `Renk değiştirilen öğe zeminde zor okunuyor: ${lowC.map((k) => shortLabel(fieldOf(k))).join(', ')}.`, 'Seçip “Otomatik” renge dönün ya da zemine karşıt bir marka rengi seçin.']);
     if (state.badge && ground === 'kirmizi') items.push(['warn', '80. yıl logosu kırmızı zeminde kullanılmaz.', 'Resmî kullanım kılavuzu yalnızca beyaz, lacivert ve siyah zemini tanımlar; bu görselde Ankara Üniversitesi logosu gösteriliyor.']);
     if (ground === 'kirmizi' && tpl.id !== 'odul') items.push(['warn', 'Kırmızı zemin seçili.', 'Kırmızı zemin büyük haberler içindir; akışta seyrek kullanıldıkça etkisi artar (9 gönderide en fazla 1).']);
     $('#checkList').innerHTML = items.map(([k, t, sub]) => `<li class="${k}"><span>${esc(t)}${sub ? `<small>${esc(sub)}</small>` : ''}</span></li>`).join('');
@@ -825,10 +1299,12 @@
   // ------------------------------------------------------------ Başlat
   preloadLogos();
   buildTemplates();
+  openPanel(curPanel);
   refresh();
+  commit();
   loadFonts();
   drawThumbs();
 
   // Test ve otomasyon için
-  window.__studio = { state: () => state, setState: (s) => { Object.assign(state, s); refresh(); }, renderTo, fmtOf, tplOf, brand: () => brand, whenImagesSettled, ready };
+  window.__studio = { select: (k) => select(k), hits: () => [...merged.values()], undo: () => go(-1), redo: () => go(1), state: () => state, setState: (s) => { Object.assign(state, s); refresh(); }, renderTo, fmtOf, tplOf, brand: () => brand, whenImagesSettled, ready };
 })();

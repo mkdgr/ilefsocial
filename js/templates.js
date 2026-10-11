@@ -88,7 +88,8 @@
   // Blok: { gap, flex, spacer, layout(ctx, w, maxH) -> { h, draw(ctx, x, y, w) } }
   const none = { h: 0, draw() {} };
   function stack(ctx, env, box, blocks, opts = {}) {
-    blocks = blocks.filter(Boolean);
+    // editörde silinen (gizlenen) öğeler yer kaplamaz, diğerleri yeniden akar
+    blocks = blocks.filter((b) => b && !(b.key && env.ov && env.ov[b.key] && env.ov[b.key].hidden));
     const u = env.u;
     // sığmıyorsa yazı ölçeğini orantılı küçült (ör. Reels'in dar alanı)
     if (!opts.measure && !opts.noShrink) {
@@ -129,10 +130,24 @@
       y += gapOf(blocks[i], i);
       if (!blocks[i].spacer) {
         const p = D.prog(env.t, delay + k * 0.12, env.calm ? 1.4 : 0.8);
-        ctx.save(); ctx.globalAlpha *= p; ctx.translate(0, (1 - p) * (env.calm ? 0 : 28) * u);
-        l.draw(ctx, box.x, y, box.w);
-        if (blocks[i].key && l.h > 0) hit(env, blocks[i].key, box.x, y, box.w, l.h);
-        ctx.restore(); k++;
+        // Kullanıcı düzenlemeleri (editörde sürükle/boyutlandır/renk/gizle): o = { dx, dy, s, color, hidden }
+        const key = blocks[i].key, ov = key && env.ov ? env.ov[key] : null, sc = (ov && ov.s) || 1;
+        const rx = box.x + ((ov && ov.dx) || 0), ry = y + ((ov && ov.dy) || 0);
+        if (env.editing !== key) {
+          ctx.save(); ctx.globalAlpha *= p; ctx.translate(0, (1 - p) * (env.calm ? 0 : 28) * u);
+          if (ov) { ctx.translate(rx, ry); ctx.scale(sc, sc); ctx.translate(-box.x, -y); }
+          const saved = ov && ov.color ? { fg: env.pal.fg, sub: env.pal.sub } : null;
+          if (saved) { env.pal.fg = env.pal.sub = ov.color; }
+          l.draw(ctx, box.x, y, box.w);
+          if (saved) Object.assign(env.pal, saved);
+          ctx.restore();
+        }
+        if (key && l.h > 0) {
+          // çerçeve yazının gerçek genişliği kadar; düzenleme kutusu blok genişliği kadar
+          const tw = l.tw ? Math.min(box.w, l.tw + 6 * u) : box.w, ox = l.align === 'center' ? (box.w - tw) / 2 : l.align === 'right' ? box.w - tw : 0;
+          hit(env, key, rx + ox * sc, ry, tw * sc, l.h * sc, { bx: rx, bw: box.w * sc, movable: true, fs: l.fs ? l.fs * sc : null, lh: l.lh ? l.lh * sc : null, weight: l.weight, ls: l.ls || 0, wr: l.wr || 1, pad: l.catPad ? l.catPad * sc : 0, align: l.align, color: (ov && ov.color) || l.color || env.pal.fg });
+        }
+        k++;
       }
       y += l.h;
     });
@@ -142,7 +157,7 @@
   // ---------------------------------------------------------------- bloklar
   const B = {};
   // Düzenlenebilir bölge kaydı: önizlemede dokununca ilgili alan açılır (yalnızca statik çizimde)
-  function hit(env, key, x, y, w, h) { if (env.hits && key) env.hits.push({ key, x, y, w, h }); }
+  function hit(env, key, x, y, w, h, meta) { if (env.hits && key) env.hits.push(Object.assign({ key, x, y, w, h }, meta || {})); }
   // Renk anahtar sözcükleri çizim anında paletten okunur (tam kadrajda palet değişebilir)
   const colorOf = (pal, c, def) => (c === 'fg' ? pal.fg : c === 'grey' ? pal.grey : c === 'sub' ? pal.sub : c || def);
   B.spacer = () => ({ spacer: true, layout: () => none });
@@ -151,7 +166,7 @@
     if (!text) return null;
     const { u, pal, brand } = env;
     const fz = 30 * u * Math.min(env.fs, 1.15);
-    return { key: o.key || env.keyOf(text), gap: o.gap, layout() { return { h: fz * 1.2, draw(ctx, x, y) {
+    return { key: o.key || env.keyOf(text), gap: o.gap, layout(ctx) { return { h: fz * 1.2, fs: fz, lh: fz * 1.2, weight: 600, catPad: fz * 1.29, tw: fz * 1.29 + (ctx ? (ctx.font = D.font(600, fz, brand.fonts.body), ctx.measureText(text).width) : 0), draw(ctx, x, y) {
       const sq = fz * 0.74;
       ctx.fillStyle = o.square || pal.accent; ctx.fillRect(x, y + (fz * 1.2 - sq) / 2, sq, sq);
       ctx.fillStyle = pal.fg; ctx.font = D.font(600, fz, brand.fonts.body); ctx.textBaseline = 'middle';
@@ -167,7 +182,7 @@
       const max = (o.max || 120) * u * env.fs;
       const mh = isFinite(maxH) ? maxH : max * (o.maxLines || 3);
       const f = D.fit(ctx, text, { weight: o.weight || 600, family: brand.fonts.head, max, min: (o.min || 52) * u * Math.min(env.fs, 1.1), maxW: w * (o.wr || 1), maxH: mh, lh: o.lh || 1.0, lsEm: o.lsEm != null ? o.lsEm : -0.035, maxLines: o.maxLines });
-      return { h: f.h, draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x - f.size * 0.03, y, bw, o.align, colorOf(pal, o.color, pal.fg)) };
+      return { h: f.h, tw: f.w, fs: f.size, lh: f.lh, weight: 600, ls: o.lsEm != null ? o.lsEm : -0.035, wr: o.wr || 1, align: o.align, color: colorOf(pal, o.color, pal.fg), draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x - f.size * 0.03, y, bw, o.align, colorOf(pal, o.color, pal.fg)) };
     } };
   };
 
@@ -177,7 +192,7 @@
     return { key: o.key || env.keyOf(text), gap: o.gap != null ? o.gap : 30, flex: o.flex != null ? o.flex : 1, layout(ctx, w, maxH) {
       const max = (o.max || 34) * u * env.fs;
       const f = D.fit(ctx, text, { weight: o.weight || 400, family: brand.fonts.body, max, min: (o.min || 24) * u, maxW: w * (o.wr || 0.92), maxH: isFinite(maxH) ? maxH : max * 1.4 * (o.maxLines || 4), lh: 1.38, lsEm: -0.005, maxLines: o.maxLines });
-      return { h: f.h, draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x, y, bw, o.align, colorOf(pal, o.color, pal.sub)) };
+      return { h: f.h, tw: f.w, fs: f.size, lh: f.lh, weight: o.weight || 400, ls: -0.005, wr: o.wr || 0.92, align: o.align, color: colorOf(pal, o.color, pal.sub), draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x, y, bw, o.align, colorOf(pal, o.color, pal.sub)) };
     } };
   };
 
@@ -914,7 +929,7 @@
         fs: H / W > 1.5 ? 1.16 : W / H > 1.3 ? 0.92 : Math.abs(W - H) < 10 ? 0.9 : 1,
         m: (W > H ? 96 : 88) * u, mr: (fmt.safeRight || 0) * u,
         top: (fmt.safeTop || 80) * u, bottom: H - (fmt.safeBottom || 72) * u,
-        getImage, data, ctx, hits: o.hits || null,
+        getImage, data, ctx, hits: o.hits || null, ov: o.ov || null, editing: o.editing || null,
         // Çizilen metnin hangi alandan geldiğini bulur (boşluk ve · farkları yok sayılır)
         keyOf(v) {
           if (v == null || v === '') return null;
