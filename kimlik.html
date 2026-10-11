@@ -119,8 +119,11 @@
   <section>
     <h2>03 · Logolar</h2>
     <h3>İmza ve birimler</h3>
-    <p class="note">Sol üstte her zaman <b>Ankara Üniversitesi + ilef</b> imzası. 80. yıl logosu 2026 boyunca seçilebilen bir dönem rozetidir. Bölüm ve atölye logoları sağ üstte, adıyla birlikte görünür. Kırmızı zeminde ilef logosu beyaz çerçeveyle, koyu yazılı logolar beyaz plaka üzerinde kullanılır.</p>
+    <p class="note">Sol üstte her zaman <b>Ankara Üniversitesi + ilef</b> imzası. Bölüm ve atölye logoları sağ üstte, adıyla birlikte görünür. Logolar yeniden renklendirilmez, çerçevelenmez; kırmızı zeminde koyu yazılı birim logoları beyaz plaka üzerinde kullanılır.</p>
     <div class="logos" id="logos"></div>
+    <h3 style="margin-top:48px">80. yıl logosu</h3>
+    <p class="note">Logo Ankara Üniversitesi mührünü içerdiği için <b>mührün yerine</b> kullanılır; ikisi yan yana konmaz. Resmî kullanım kılavuzundaki üç sürüm dışında kullanılmaz: beyaz zeminde lacivert, lacivert zeminde beyaz (mühür renkli), siyah zeminde beyaz (mühür tek renk). <b>Kırmızı zeminde kullanılmaz.</b></p>
+    <div class="logos" id="logos80"></div>
   </section>
 
   <section>
@@ -139,7 +142,8 @@
       <div class="rule"><b>Fotoğraf olduğu gibi</b>Filtre, çerçeve, gölge yok; temiz dikdörtgen. Yüz içeren kareler tercih edilir.</div>
       <div class="rule"><b>Hazır afişleri kırpmayın</b>Dışarıdan gelen afiş “Hazır afiş” çerçevesine girer; tarih ve yer altta tekrarlanır.</div>
       <div class="rule"><b>Vefat ve anma sade kalır</b>Renk, mesh, motif ve hareket kullanılmaz; fotoğraf siyah-beyazdır.</div>
-      <div class="rule no"><b>Yapmayın</b>Logoyu yeniden renklendirmek, başka yazı tipi kullanmak, kırmızıyı başlıkta kullanmak, motifleri metnin arkasına sıkıştırmak.</div>
+      <div class="rule no"><b>Yapmayın</b>Logoyu yeniden renklendirmek ya da çerçevelemek, başka yazı tipi kullanmak, kırmızıyı başlıkta kullanmak, motifleri metnin arkasına sıkıştırmak.</div>
+      <div class="rule no"><b>Yapmayın</b>80. yıl logosunu Ankara Üniversitesi mührüyle yan yana ya da kırmızı zeminde kullanmak.</div>
       <div class="rule no"><b>Yapmayın</b>Story/Reels’te üst %14 ve alt %20–35’e bilgi koymak; platform arayüzü örter.</div>
     </div>
   </section>
@@ -195,9 +199,12 @@
   $('#hier').innerHTML = H.map(([n, s, ex]) => `<div class="type-row"><div class="spec"><b>${n}</b>${s}</div><div>${ex}</div></div>`).join('');
   const resolve = (src) => (src && window.LOGO_DATA && window.LOGO_DATA[src]) || src;
   const GN = { ana: 'Ana imza', rozet: 'Dönem rozeti', bolum: 'Bölüm', atolye: 'Atölye / birim' };
-  $('#logos').innerHTML = B.logos.filter((l) => l.light || l.dark).map((l) => `<figure>
+  const y80 = B.logos.find((l) => l.id === 'au-80-yil');
+  if (y80 && y80.variants) $('#logos80').innerHTML = [['beyaz', '#FFFFFF', 'Beyaz zemin'], ['lacivert', '#16427F', 'Lacivert zemin'], ['siyah', '#1A1A18', 'Siyah zemin']].map(([k, bg, n]) => `<figure><div class="box" style="height:150px;background:${bg};border-radius:3px;${k === 'beyaz' ? 'border:1px solid #E2E2DE' : ''}"><img src="${resolve(y80.variants[k])}" alt="" style="max-height:126px"></div><figcaption><b>${n}</b>Resmî kullanım</figcaption></figure>`).join('') +
+    `<figure><div class="box" style="height:150px;background:#D3131A;border-radius:3px;color:#fff;font-weight:600;text-align:center">Kırmızı zeminde<br>kullanılmaz</div><figcaption><b>Kırmızı zemin</b>Bu görsellerde Ankara Üniversitesi logosu kullanılır</figcaption></figure>`;
+  $('#logos').innerHTML = B.logos.filter((l) => (l.light || l.dark) && l.group !== 'rozet').map((l) => `<figure>
     <div class="box"><img src="${resolve(l.light || l.dark)}" alt=""></div>
-    <div class="box dark">${l.panel ? `<span style="background:#fff;padding:8px 10px;border-radius:3px;display:inline-grid"><img src="${resolve(l.light)}" alt="" style="max-height:56px"></span>` : `<img src="${resolve(l.dark || l.light)}" alt="" style="${l.outlineOnRed ? 'outline:3px solid #fff' : ''}">`}</div>
+    <div class="box dark">${l.panel ? `<span style="background:#fff;padding:8px 10px;border-radius:3px;display:inline-grid"><img src="${resolve(l.light)}" alt="" style="max-height:56px"></span>` : `<img src="${resolve(l.dark || l.light)}" alt="">`}</div>
     <figcaption><b>${l.name}</b>${GN[l.group] || l.group}</figcaption></figure>`).join('');
   $('#motifs tbody').innerHTML = Object.entries(window.MOTIFS).filter(([k]) => k !== 'yok').map(([k, v]) => { const [a, b] = v.split(' · '); return `<tr><td><b>${a}</b></td><td>${b || ''}</td></tr>`; }).join('');
   $('#formats tbody').innerHTML = window.FORMATS.map((f) => `<tr><td><b>${f.name}</b></td><td>${f.w} × ${f.h}</td><td>${f.hint.split(' · ').slice(1).join(' · ')}</td></tr>`).join('');

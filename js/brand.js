@@ -6,7 +6,7 @@
  *
  * Logolar: `logos` listesi.
  *   group: 'ana'   -> her görselin imzasında (Ankara Üniversitesi + ilef)
- *          'rozet' -> isteğe bağlı dönem rozeti (80. yıl)
+ *          'rozet' -> isteğe bağlı dönem logosu (80. yıl); `replaces` ile belirtilen ana logonun yerine geçer
  *          'bolum' / 'atolye' -> görsel bazında seçilir, sağ üstte görünür
  *   dark : kırmızı zeminde kullanılacak sürüm, light: beyaz zeminde
  *   panel: true -> kırmızı zeminde beyaz plaka üzerinde gösterilir
@@ -33,8 +33,11 @@ window.BRAND_DEFAULT = {
   },
   logos: [
     { id: 'ankara-universitesi', name: 'Ankara Üniversitesi', group: 'ana', dark: 'assets/logos/ankara-universitesi.svg', light: 'assets/logos/ankara-universitesi.svg' },
-    { id: 'ilef', name: 'İletişim Fakültesi (ilef)', group: 'ana', dark: 'assets/logos/ilef.svg', light: 'assets/logos/ilef.svg', outlineOnRed: true },
-    { id: 'au-80-yil', name: 'Ankara Üniversitesi 80. yıl', group: 'rozet', dark: 'assets/logos/ankara-universitesi-80-yil-beyaz.svg', light: 'assets/logos/ankara-universitesi-80-yil.svg' },
+    { id: 'ilef', name: 'İletişim Fakültesi (ilef)', group: 'ana', dark: 'assets/logos/ilef.svg', light: 'assets/logos/ilef.svg' },
+    // 80. yıl logosu Ankara Üniversitesi mührünü içerir: açıkken mührün YERİNE geçer (ikisi birlikte kullanılmaz).
+    // Resmî kullanımlar yalnızca beyaz, lacivert ve siyah zemin içindir; kırmızı zeminde gösterilmez.
+    { id: 'au-80-yil', name: 'Ankara Üniversitesi 80. yıl', group: 'rozet', replaces: 'ankara-universitesi', light: 'assets/logos/ankara-universitesi-80-yil.svg', dark: null,
+      variants: { beyaz: 'assets/logos/ankara-universitesi-80-yil.svg', lacivert: 'assets/logos/ankara-universitesi-80-yil-lacivert-zemin.svg', siyah: 'assets/logos/ankara-universitesi-80-yil-siyah-zemin.svg' } },
     { id: 'gazetecilik', name: 'Gazetecilik Bölümü', group: 'bolum', dark: 'assets/logos/gazetecilik.svg', light: 'assets/logos/gazetecilik.svg', motif: 'gazete' },
     { id: 'hit', name: 'Halkla İlişkiler ve Tanıtım Bölümü', group: 'bolum', dark: 'assets/logos/halkla-iliskiler.svg', light: 'assets/logos/halkla-iliskiler.svg', motif: 'ag' },
     { id: 'rtvs', name: 'Radyo, Televizyon ve Sinema Bölümü', group: 'bolum', dark: 'assets/logos/radyo-tv-sinema.svg', light: 'assets/logos/radyo-tv-sinema.svg', motif: 'film' },

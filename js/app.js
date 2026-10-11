@@ -3,7 +3,7 @@
   const { Studio, FORMATS, GROUNDS, MESHES, MOTIFS, BRAND_DEFAULT, COLOR_LABELS } = window;
   const TPLS = Studio.templates;
   const STATE_KEY = 'ilef-studyo-durum-v2';
-  const BRAND_KEY = 'ilef-studyo-marka-v2';
+  const BRAND_KEY = 'ilef-studyo-marka-v3';
   const $ = (s) => document.querySelector(s);
   const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -459,7 +459,7 @@
   $('#btnBrand').onclick = () => { buildBrandDlg(); dlg.showModal(); };
   dlg.addEventListener('close', () => { preloadLogos(); saveBrand(); buildUnits(); scheduleThumbs(); scheduleRender(); });
 
-  const GROUP_NAMES = { ana: 'Ana imza', rozet: 'Dönem rozeti', bolum: 'Bölüm', atolye: 'Atölye / birim' };
+  const GROUP_NAMES = { ana: 'Ana imza', rozet: 'Dönem logosu', bolum: 'Bölüm', atolye: 'Atölye / birim' };
   function buildBrandDlg() {
     [['#bUni', 'university'], ['#bFac', 'faculty'], ['#bWeb', 'web'], ['#bSoc', 'social']].forEach(([s, k]) => {
       const el = $(s);
@@ -566,6 +566,7 @@
     if (imgField && !d[imgField.key] && ['haber', 'etkinlik', 'kisi', 'karusel'].includes(tpl.id)) items.push(['warn', 'Fotoğraf eklemeyi düşünün.', 'İnsan yüzü içeren fotoğraflar Instagram’da belirgin biçimde daha fazla beğeni ve yorum alıyor (Bakhshi ve ark., CHI 2014).']);
     if (fmt.safeBottom) items.push(['ok', 'Story/Reels güvenli alanı korunuyor.', 'Logo, başlık ve tarih platform arayüzünün altında kalmayacak biçimde yerleştirildi. “Güvenli alanı göster” ile kontrol edebilirsiniz.']);
     if (fmt.id === 'post45') items.push(['ok', 'Profil ızgarası 3:4 kırpar.', 'Önemli içerik kenar boşlukları içinde; ızgarada kesilmez.']);
+    if (state.badge && ground === 'kirmizi') items.push(['warn', '80. yıl logosu kırmızı zeminde kullanılmaz.', 'Resmî kullanım kılavuzu yalnızca beyaz, lacivert ve siyah zemini tanımlar; bu görselde Ankara Üniversitesi logosu gösteriliyor.']);
     if (ground === 'kirmizi' && tpl.id !== 'odul') items.push(['warn', 'Kırmızı zemin seçili.', 'Kırmızı zemin büyük haberler içindir; akışta seyrek kullanıldıkça etkisi artar (9 gönderide en fazla 1).']);
     $('#checkList').innerHTML = items.map(([k, t, sub]) => `<li class="${k}"><span>${esc(t)}${sub ? `<small>${esc(sub)}</small>` : ''}</span></li>`).join('');
   }

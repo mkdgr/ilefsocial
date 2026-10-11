@@ -34,7 +34,6 @@
     const s = Math.min(h / ih, (maxW || h * 5) / iw), w = iw * s, hh = ih * s;
     const x0 = alignRight ? x - w : x;
     ctx.drawImage(img, x0, y + (h - hh) / 2, w, hh);
-    if (logo.outlineOnRed && env.pal.red) { ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3 * env.u; ctx.strokeRect(x0, y + (h - hh) / 2, w, hh); }
     return w;
   }
 
@@ -43,9 +42,13 @@
     ctx.save();
     ctx.globalAlpha *= D.prog(t, 0, 0.6);
     let x = m;
+    // 80. yıl logosu açıksa (ve zemin uygunsa) Ankara Üniversitesi mührünün yerine geçer
+    const badge = env.badge && !env.pal.red ? brand.logos.find((l) => l.group === 'rozet' && l.light) : null;
     const main = brand.logos.filter((l) => l.group === 'ana');
-    main.forEach((l, i) => { const h = (i === 0 ? 64 : 56) * u; const w = drawLogo(ctx, env, l, x, top + (64 * u - h) / 2, h); if (w) x += w + 18 * u; });
-    if (env.badge) { const b = brand.logos.find((l) => l.group === 'rozet'); if (b) { const w = drawLogo(ctx, env, b, x, top - 2 * u, 68 * u); if (w) x += w + 18 * u; } }
+    main.forEach((l, i) => {
+      if (badge && badge.replaces === l.id) { const w = drawLogo(ctx, env, badge, x, top - 10 * u, 84 * u); if (w) x += w + 22 * u; return; }
+      const h = (i === 0 ? 64 : 56) * u; const w = drawLogo(ctx, env, l, x, top + (64 * u - h) / 2, h); if (w) x += w + 18 * u;
+    });
     // sağ üst: birim (logo + ad) ya da serbest üst bilgi
     const right = env.W - m - env.mr;
     const label = env.unit ? env.unit.name : env.topRight;
