@@ -1,5 +1,5 @@
 :root {
-  --navy: #0b2a5b;
+  --navy: #111111;
   --ink: #16202f;
   --muted: #5b6578;
   --line: #e2e5ec;
@@ -8,21 +8,21 @@
   --accent: #ed1c24;
   --focus: #2c6bc4;
   --radius: 10px;
-  font-family: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  font-family: "Instrument Sans", "Segoe UI", Arial, sans-serif;
   color: var(--ink);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); font-size: 15px; display: flex; flex-direction: column; }
 button, input, select, textarea { font: inherit; color: inherit; }
-h2 { font: 700 13px/1 Montserrat, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+h2 { font: 700 13px/1 "Instrument Sans", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
 h2 span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 11px; letter-spacing: 0; }
 
 /* Üst çubuk */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 20px; background: var(--navy); color: #fff; flex-wrap: wrap; }
 .brandmark { display: flex; align-items: center; gap: 12px; }
 .brandmark img { height: 38px; }
-.brandmark strong { display: block; font: 800 18px Montserrat, sans-serif; }
+.brandmark strong { display: block; font: 800 18px "Instrument Sans", sans-serif; }
 .brandmark span { font-size: 13px; opacity: .75; }
 .top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .topbar .ghost { border-color: rgba(255,255,255,.35); color: #fff; }
@@ -70,7 +70,7 @@ button.rec { background: #b4232c; color: #fff; border-color: #b4232c; }
 .chip[aria-pressed="true"] small { color: rgba(255,255,255,.75); }
 .panel select, .fields input, .fields textarea, .fields select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; }
 .panel > section > select, .row3 select { padding: 7px 8px; }
-.row3 { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 10px; align-items: end; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; align-items: end; }
 .row3 label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: #374152; }
 .row3 select { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .fullsel { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
@@ -101,7 +101,7 @@ dialog::backdrop { background: rgba(8,16,32,.5); }
 .dlg footer { border-top: 1px solid var(--line); border-bottom: 0; flex-wrap: wrap; }
 .dlg .grow { flex: 1; }
 .dlg-body { padding: 16px 20px; overflow-y: auto; }
-.dlg h3 { font: 700 14px Montserrat, sans-serif; margin: 22px 0 6px; }
+.dlg h3 { font: 700 14px "Instrument Sans", sans-serif; margin: 22px 0 6px; }
 .note { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
 .grid2 label { display: grid; gap: 4px; font-size: 13.5px; font-weight: 600; }
@@ -128,8 +128,8 @@ dialog::backdrop { background: rgba(8,16,32,.5); }
 .assist { display: grid; grid-template-columns: minmax(240px, 1fr) 2fr; gap: 16px; }
 .assist section { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
 .assist h2 { justify-content: space-between; flex-wrap: wrap; }
-.assist h2 small { text-transform: none; letter-spacing: 0; font: 400 12.5px "Source Sans 3", sans-serif; color: var(--muted); }
-.toggle { text-transform: none; letter-spacing: 0; font: 600 13px "Source Sans 3", sans-serif; color: var(--ink); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.assist h2 small { text-transform: none; letter-spacing: 0; font: 400 12.5px "Instrument Sans", sans-serif; color: var(--muted); }
+.toggle { text-transform: none; letter-spacing: 0; font: 600 13px "Instrument Sans", sans-serif; color: var(--ink); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
 #checkList { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; }
 #checkList li { display: grid; grid-template-columns: 20px 1fr; gap: 6px; line-height: 1.35; }
 #checkList li::before { content: "✓"; color: #0e7c4a; font-weight: 800; }
@@ -151,3 +151,15 @@ dialog::backdrop { background: rgba(8,16,32,.5); }
   .grid2 { grid-template-columns: 1fr; }
   .logo-row { grid-template-columns: 1fr auto auto; }
 }
+
+.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; font-weight: 500; }
+.slidebar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13.5px; color: var(--muted); }
+.slidebar[hidden] { display: none; }
+.topbar { background: #fff; color: var(--ink); border-bottom: 1px solid var(--line); }
+.topbar .ghost { border-color: var(--line); color: var(--ink); }
+.topbar .ghost:hover { background: #f4f4f1; }
+.brandmark span { opacity: .6; }
+h2 span { background: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); }
+.tpl[aria-pressed="true"] { border-color: var(--accent); }
+a.btnlike { text-decoration: none; color: inherit; }

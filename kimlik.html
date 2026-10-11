@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>İLEF Kimlik Kılavuzu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --red: #ED1C24; --ink: #111; --grey: #6B6B6B; --line: #E2E2DE; --mist: #F4F4F1; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: var(--ink); font: 400 17px/1.55 "Instrument Sans", "Segoe UI", Arial, sans-serif; }
+    main { max-width: 1120px; margin: 0 auto; padding: 56px 24px 96px; }
+    header.top { display: flex; align-items: center; gap: 18px; margin-bottom: 56px; }
+    header.top img { height: 56px; }
+    header.top .t { font-weight: 600; font-size: 15px; color: var(--grey); }
+    h1 { font-size: clamp(44px, 7vw, 88px); line-height: .98; letter-spacing: -.035em; font-weight: 600; margin: 0 0 18px; }
+    .lede { font-size: 21px; color: #333; max-width: 720px; margin: 0; }
+    section { margin-top: 88px; }
+    h2 { display: flex; align-items: center; gap: 14px; font-size: 15px; font-weight: 600; letter-spacing: .02em; margin: 0 0 8px; }
+    h2::before { content: ""; width: 14px; height: 14px; background: var(--red); }
+    h3 { font-size: 34px; line-height: 1.05; letter-spacing: -.03em; font-weight: 600; margin: 0 0 24px; }
+    p.note { color: var(--grey); max-width: 760px; }
+    .grid { display: grid; gap: 16px; }
+    .sw { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: #fff; }
+    .sw .chip { height: 128px; }
+    .sw .meta { padding: 14px 16px 16px; font-size: 14px; }
+    .sw .meta b { display: block; font-size: 17px; margin-bottom: 6px; }
+    .sw code { font: 500 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: #333; display: block; }
+    .sw .role { color: var(--grey); margin-top: 8px; display: block; }
+    .cols-4 { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .cols-3 { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+    .ratio { display: flex; height: 56px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); margin: 8px 0 10px; }
+    .ratio div { display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+    .legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 14px; color: var(--grey); }
+    .mesh { height: 150px; position: relative; overflow: hidden; }
+    .rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .rule { border-top: 2px solid var(--ink); padding-top: 14px; }
+    .rule.no { border-top-color: var(--red); }
+    .rule b { display: block; margin-bottom: 4px; }
+    .type-row { display: grid; grid-template-columns: 220px 1fr; gap: 24px; padding: 26px 0; border-top: 1px solid var(--line); align-items: baseline; }
+    .type-row .spec { font-size: 14px; color: var(--grey); }
+    .type-row .spec b { color: var(--ink); display: block; font-size: 16px; }
+    .weights { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .weights div { border: 1px solid var(--line); border-radius: 4px; padding: 18px; }
+    .weights span { display: block; font-size: 48px; line-height: 1; letter-spacing: -.03em; margin-bottom: 10px; }
+    .glyphs { font-size: 34px; letter-spacing: .02em; line-height: 1.5; word-break: break-all; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid var(--ink); border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; }
+    .btn.red { background: var(--red); border-color: var(--red); color: #fff; }
+    .logos { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .logos figure { margin: 0; border: 1px solid var(--line); border-radius: 4px; padding: 18px; display: grid; gap: 12px; align-content: start; }
+    .logos .box { height: 96px; display: grid; place-items: center; }
+    .logos .box.dark { background: #D3131A; border-radius: 3px; }
+    .logos img { max-height: 76px; max-width: 160px; }
+    .logos figcaption { font-size: 14px; color: var(--grey); }
+    .logos figcaption b { color: var(--ink); display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; padding: 12px 10px 12px 0; border-top: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 600; color: var(--grey); font-size: 13px; }
+    .samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .samples canvas { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 4px; }
+    .samples small { color: var(--grey); }
+    footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--grey); font-size: 14px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    @media (max-width: 700px) { .type-row { grid-template-columns: 1fr; gap: 8px; } .weights { grid-template-columns: repeat(2, 1fr); } }
+    @media print { section { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <img src="assets/logos/ankara-universitesi.svg" alt="Ankara Üniversitesi" />
+    <img src="assets/logos/ilef.svg" alt="ilef" style="height:48px" />
+    <span class="t">Sosyal medya görsel kimliği · sürüm 2</span>
+  </header>
+  <h1>Kimlik kılavuzu</h1>
+  <p class="lede">Beyaz ve tonları, tek bir kırmızı kare, tek bir yazı ailesi. Arkada beyaz tülün ardından görünen yumuşak renkler ve konuyu anlatan ince çizgiler. Bu sayfadaki değerler <code>js/brand.js</code> dosyasından okunur; Görsel Stüdyo aynı değerleri kullanır.</p>
+
+  <section>
+    <h2>01 · Renk paleti</h2>
+    <h3>Ana renkler</h3>
+    <div class="grid cols-4" id="mainColors"></div>
+    <p class="note">CMYK değerleri ekran renginden hesaplanmış yaklaşık değerlerdir. Basılı işlerde matbaanın renk profiliyle doğrulayın.</p>
+
+    <h3 style="margin-top:48px">Kullanım oranı</h3>
+    <div class="ratio">
+      <div style="flex:78;background:#fff">Beyaz ve tonları · %78</div>
+      <div style="flex:12;background:#111;color:#fff">Mürekkep · %12</div>
+      <div style="flex:7;background:linear-gradient(90deg,#FFC2A8,#FF8A3D)">Mesh · %7</div>
+      <div style="flex:3;background:#ED1C24;color:#fff">%3</div>
+    </div>
+    <div class="legend"><span>Kırmızı yalnızca kare öğede: tür işareti, tarih kutusu, takvimde son gün.</span></div>
+
+    <h3 style="margin-top:48px">Mesh tonları</h3>
+    <p class="note">Beyaz tülün arkasından, köşelerde görünen renk lekeleri. Akışta bütünlük için çoğunlukla <b>Sıcak</b> kullanılır; resmî içeriklerde <b>Kurumsal</b>. Diğerleri yalnızca konu gerektirdiğinde.</p>
+    <div class="grid cols-3" id="meshes"></div>
+  </section>
+
+  <section>
+    <h2>02 · Font kiti</h2>
+    <h3>Instrument Sans</h3>
+    <p class="note">Tek yazı ailesi, dört ağırlık. Açık kaynak (SIL Open Font License), Türkçe karakterlerin tamamını destekler. Başlıklarda sıkı harf aralığı (−%3,5) ve dar satır aralığı kullanılır.</p>
+    <p style="display:flex;gap:10px;flex-wrap:wrap">
+      <a class="btn red" href="https://fonts.google.com/specimen/Instrument+Sans" target="_blank" rel="noopener">Google Fonts’tan indir</a>
+      <a class="btn" href="https://github.com/Instrument/instrument-sans" target="_blank" rel="noopener">Kaynak dosyalar</a>
+    </p>
+    <div class="weights" style="margin-top:28px">
+      <div><span style="font-weight:400">Ağ</span><b>Regular 400</b><br><small>gövde metni</small></div>
+      <div><span style="font-weight:500">Ağ</span><b>Medium 500</b><br><small>bilgi etiketi, alt bilgi</small></div>
+      <div><span style="font-weight:600">Ağ</span><b>SemiBold 600</b><br><small>başlık, rakam, etiket</small></div>
+      <div><span style="font-weight:700">Ağ</span><b>Bold 700</b><br><small>takvimde vurgulu gün</small></div>
+    </div>
+    <h3 style="margin-top:48px">Hiyerarşi <small style="font-size:16px;color:var(--grey);letter-spacing:0;font-weight:500">· 1080 px genişlikte gönderi için</small></h3>
+    <div id="hier"></div>
+    <h3 style="margin-top:48px">Karakter seti</h3>
+    <div class="glyphs">ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ<br>abcçdefgğhıijklmnoöprsştuüvyz<br>0123456789 ₺ % & “ ” ‘ ’ – — · →</div>
+  </section>
+
+  <section>
+    <h2>03 · Logolar</h2>
+    <h3>İmza ve birimler</h3>
+    <p class="note">Sol üstte her zaman <b>Ankara Üniversitesi + ilef</b> imzası. 80. yıl logosu 2026 boyunca seçilebilen bir dönem rozetidir. Bölüm ve atölye logoları sağ üstte, adıyla birlikte görünür. Kırmızı zeminde ilef logosu beyaz çerçeveyle, koyu yazılı logolar beyaz plaka üzerinde kullanılır.</p>
+    <div class="logos" id="logos"></div>
+  </section>
+
+  <section>
+    <h2>04 · Konu motifleri</h2>
+    <h3>Çizgiler rastgele değil, konuyu anlatır</h3>
+    <table id="motifs"><thead><tr><th>Motif</th><th>Ne zaman</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>05 · Kurallar</h2>
+    <h3>Yap · yapma</h3>
+    <div class="rules">
+      <div class="rule"><b>Kırmızı yalnızca anlam taşıdığında</b>Tür işareti, tarih kutusu, son gün. Başlıklar siyahtır.</div>
+      <div class="rule"><b>Kırmızı zemin büyük haber içindir</b>Ödül, önemli başarı. Akışta 9 gönderide en fazla 1.</div>
+      <div class="rule"><b>Görselde az metin</b>Başlık + kısa bilgi. Ayrıntı gönderi açıklamasına. 40 kelimeyi geçmeyin.</div>
+      <div class="rule"><b>Fotoğraf olduğu gibi</b>Filtre, çerçeve, gölge yok; temiz dikdörtgen. Yüz içeren kareler tercih edilir.</div>
+      <div class="rule"><b>Hazır afişleri kırpmayın</b>Dışarıdan gelen afiş “Hazır afiş” çerçevesine girer; tarih ve yer altta tekrarlanır.</div>
+      <div class="rule"><b>Vefat ve anma sade kalır</b>Renk, mesh, motif ve hareket kullanılmaz; fotoğraf siyah-beyazdır.</div>
+      <div class="rule no"><b>Yapmayın</b>Logoyu yeniden renklendirmek, başka yazı tipi kullanmak, kırmızıyı başlıkta kullanmak, motifleri metnin arkasına sıkıştırmak.</div>
+      <div class="rule no"><b>Yapmayın</b>Story/Reels’te üst %14 ve alt %20–35’e bilgi koymak; platform arayüzü örter.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>06 · Formatlar</h2>
+    <h3>Boyutlar ve güvenli alanlar</h3>
+    <table id="formats"><thead><tr><th>Format</th><th>Boyut</th><th>Not</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>07 · Örnekler</h2>
+    <h3>Stüdyodan canlı çıktılar</h3>
+    <div class="samples" id="samples"></div>
+  </section>
+
+  <footer><span>Ankara Üniversitesi İletişim Fakültesi · Görsel Stüdyo</span><a href="index.html" class="btn">Stüdyoya dön</a></footer>
+</main>
+
+<script src="js/logos.js"></script>
+<script src="js/brand.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/bg.js"></script>
+<script src="js/templates.js"></script>
+<script>
+(function () {
+  const B = window.BRAND_DEFAULT, C = B.colors;
+  const $ = (s) => document.querySelector(s);
+  const rgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const cmyk = (h) => { const [r, g, b] = rgb(h).map((v) => v / 255); const k = 1 - Math.max(r, g, b); if (k >= 1) return [0, 0, 0, 100]; return [(1 - r - k) / (1 - k), (1 - g - k) / (1 - k), (1 - b - k) / (1 - k), k].map((v) => Math.round(v * 100)); };
+  const ROLES = {
+    red: 'Kırmızı kare: tür işareti, tarih, son gün', redDeep: 'Kırmızı zemin (büyük haber)', ink: 'Başlık ve metin', grey: 'İkincil metin, alt bilgi',
+    line: 'Motif çizgileri, takvim ızgarası', mist: 'Zemin tonu', navy: 'Kurumsal mesh tonu', gold: 'Kurumsal mesh tonu',
+  };
+  const order = ['red', 'ink', 'mist', 'grey', 'line', 'redDeep', 'navy', 'gold'];
+  $('#mainColors').innerHTML = order.filter((k) => C[k]).map((k) => {
+    const h = C[k].toUpperCase();
+    return `<div class="sw"><div class="chip" style="background:${h};${k === 'mist' ? 'border-bottom:1px solid #E2E2DE' : ''}"></div><div class="meta"><b>${window.COLOR_LABELS[k] || k}</b><code>HEX ${h}</code><code>RGB ${rgb(h).join(' ')}</code><code>CMYK ${cmyk(h).join(' ')}</code><span class="role">${ROLES[k] || ''}</span></div></div>`;
+  }).join('');
+  $('#meshes').innerHTML = Object.entries(window.MESHES).filter(([, m]) => m.colors).map(([k, m]) => {
+    const c = m.colors;
+    const bg = `radial-gradient(60% 80% at 0% 0%, ${c[0]}cc, transparent 70%), radial-gradient(55% 80% at 100% 0%, ${c[1]}cc, transparent 70%), radial-gradient(60% 90% at 100% 100%, ${c[2]}cc, transparent 70%), radial-gradient(55% 90% at 0% 100%, ${c[3]}cc, transparent 70%)`;
+    return `<div class="sw"><div class="chip mesh" style="background:${bg}"><div style="position:absolute;inset:0;background:radial-gradient(70% 70% at 45% 45%, rgba(255,255,255,.9), rgba(255,255,255,.2))"></div></div><div class="meta"><b>${m.name}</b><code>${c.map((x) => x.toUpperCase()).join(' · ')}</code></div></div>`;
+  }).join('');
+  const H = [
+    ['Başlık', '600 · 104–124 px · harf −%3,5 · satır 1,0', '<span style="font-weight:600;font-size:64px;line-height:1;letter-spacing:-.035em">Yapay zekâ çağında gazetecilik</span>'],
+    ['Büyük rakam', '600 · 230 px · harf −%5', '<span style="font-weight:600;font-size:96px;line-height:1;letter-spacing:-.05em">4.000 TL</span>'],
+    ['Etiket', '600 · 30 px · 22 px kırmızı kare', '<span style="display:inline-flex;align-items:center;gap:12px;font-weight:600;font-size:22px"><i style="width:16px;height:16px;background:#ED1C24;display:inline-block"></i>Belgesel film gösterimi</span>'],
+    ['Gövde', '400 · 34 px · satır 1,38 · #333', '<span style="font-size:22px;line-height:1.38;color:#333">Öğrencilerimizin Çin’de çektiği kısa filmler, konuk delegasyonla birlikte perdede.</span>'],
+    ['Bilgi satırı', 'etiket 500 · 24 px · gri / değer 600 · 32 px', '<span style="display:grid;grid-template-columns:repeat(3,1fr);border-top:1.5px solid #111;padding-top:12px;max-width:560px"><span><small style="color:#6B6B6B;display:block">Tarih</small><b>19 Ekim</b></span><span><small style="color:#6B6B6B;display:block">Saat</small><b>10.30</b></span><span><small style="color:#6B6B6B;display:block">Yer</small><b>ATK Sanat Evi</b></span></span>'],
+    ['Alt bilgi', '500 · 25 px · #6B6B6B', '<span style="color:#6B6B6B;font-weight:500">ilef.ankara.edu.tr &nbsp;·&nbsp; @ilefsocial</span>'],
+  ];
+  $('#hier').innerHTML = H.map(([n, s, ex]) => `<div class="type-row"><div class="spec"><b>${n}</b>${s}</div><div>${ex}</div></div>`).join('');
+  const resolve = (src) => (src && window.LOGO_DATA && window.LOGO_DATA[src]) || src;
+  const GN = { ana: 'Ana imza', rozet: 'Dönem rozeti', bolum: 'Bölüm', atolye: 'Atölye / birim' };
+  $('#logos').innerHTML = B.logos.filter((l) => l.light || l.dark).map((l) => `<figure>
+    <div class="box"><img src="${resolve(l.light || l.dark)}" alt=""></div>
+    <div class="box dark">${l.panel ? `<span style="background:#fff;padding:8px 10px;border-radius:3px;display:inline-grid"><img src="${resolve(l.light)}" alt="" style="max-height:56px"></span>` : `<img src="${resolve(l.dark || l.light)}" alt="" style="${l.outlineOnRed ? 'outline:3px solid #fff' : ''}">`}</div>
+    <figcaption><b>${l.name}</b>${GN[l.group] || l.group}</figcaption></figure>`).join('');
+  $('#motifs tbody').innerHTML = Object.entries(window.MOTIFS).filter(([k]) => k !== 'yok').map(([k, v]) => { const [a, b] = v.split(' · '); return `<tr><td><b>${a}</b></td><td>${b || ''}</td></tr>`; }).join('');
+  $('#formats tbody').innerHTML = window.FORMATS.map((f) => `<tr><td><b>${f.name}</b></td><td>${f.w} × ${f.h}</td><td>${f.hint.split(' · ').slice(1).join(' · ')}</td></tr>`).join('');
+
+  // canlı örnekler
+  const cache = new Map();
+  const getImage = (src) => { const real = resolve(src); let e = cache.get(real); if (!e) { const i = new Image(); e = { i, ok: false }; i.onload = () => { e.ok = true; draw(); }; i.src = real; cache.set(real, e); } return e.ok ? e.i : null; };
+  const picks = ['duyuru', 'etkinlik', 'sontarih', 'rakam', 'odul', 'vefat'];
+  const fmt = window.FORMATS[0];
+  const el = $('#samples');
+  el.innerHTML = picks.map((id) => `<div><canvas width="${fmt.w}" height="${fmt.h}" data-id="${id}"></canvas><small>${(window.Studio.templates.find((t) => t.id === id) || {}).name}</small></div>`).join('');
+  function draw() {
+    el.querySelectorAll('canvas').forEach((c) => {
+      const tpl = window.Studio.templates.find((t) => t.id === c.dataset.id);
+      const data = {}; tpl.fields.forEach((f) => { data[f.key] = f.def != null ? f.def : ''; });
+      window.Studio.render(c.getContext('2d'), { tpl, data, fmt, brand: B, t: Infinity, getImage });
+    });
+  }
+  document.fonts.load('600 40px "Instrument Sans"').then(draw); draw();
+})();
+</script>
+</body>
+</html>

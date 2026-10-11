@@ -1,1324 +1,728 @@
-/* Şablonlar ve ortak kurumsal çerçeve.
- * Her şablon: { id, name, desc, category, accent, align, forceTheme?, fields[], render(ctx, d, env) }
- * Tüm ölçüler `u` birimiyle verilir (u = kısa kenar / 1080), böylece her format aynı oranlarla çizilir.
+/* Şablonlar ve yerleşim motoru.
+ * Dil: beyaz zemin + mesh, ilef kırmızısı yalnızca "kırmızı kare"de, Instrument Sans, bol boşluk.
+ * Her şablon içeriği bloklar halinde tanımlar; compose() bunları formata göre yerleştirir
+ * (4:5, kare, story/reels, yatay). Ölçüler `u` birimiyle (u = kısa kenar / 1080).
  */
 (function () {
-  const { D } = window;
+  const { D, Ground } = window;
 
-  // ---------------------------------------------------------------- Palet
-  const relLum = (hex) => {
-    const n = parseInt(hex.replace('#', ''), 16);
-    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-    return 0.2126 * f((n >> 16) & 255) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255);
-  };
-  function palette(theme, accentKey, C) {
-    const a = C[accentKey] || C.gold;
-    const lightAccent = relLum(a) > 0.22; // açık vurgu renkleri (altın, turuncu) üzerinde koyu yazı
-    switch (theme) {
-      case 'acik':
-        return {
-          bg1: C.cream, bg2: '#FFFFFF', fg: C.navy, sub: D.hexA(C.ink, 0.72), accent: lightAccent ? D.shade(a, -0.3) : a,
-          tagBg: a, tagFg: lightAccent ? C.navy : '#FFFFFF', motif: C.navy, motifA: 0.07, strip: a, light: true,
-        };
-      case 'renkli': {
-        const bg = lightAccent ? a : D.shade(a, -0.08);
-        return {
-          bg1: bg, bg2: D.shade(a, -0.3), fg: lightAccent ? C.deep : '#FFFFFF', sub: lightAccent ? D.hexA(C.deep, 0.8) : 'rgba(255,255,255,.86)',
-          accent: lightAccent ? C.navy : '#FFFFFF', tagBg: lightAccent ? C.navy : '#FFFFFF', tagFg: lightAccent ? '#FFFFFF' : D.shade(a, -0.15),
-          motif: lightAccent ? C.navy : '#FFFFFF', motifA: 0.1, strip: C.navy, light: lightAccent,
-        };
-      }
-      case 'kirmizi':
-        return {
-          bg1: D.shade(C.red, -0.12), bg2: D.shade(C.red, -0.38), fg: '#FFFFFF', sub: 'rgba(255,255,255,.88)', accent: '#FFFFFF',
-          tagBg: '#FFFFFF', tagFg: D.shade(C.red, -0.15), motif: '#FFFFFF', motifA: 0.09, strip: C.navy, light: false,
-        };
-      case 'gece':
-        return {
-          bg1: '#0B1124', bg2: '#04060D', fg: '#FFFFFF', sub: 'rgba(255,255,255,.76)', accent: lightAccent ? a : D.shade(a, 0.25),
-          tagBg: a, tagFg: lightAccent ? '#04060D' : '#FFFFFF', motif: D.shade(a, 0.2), motifA: 0.12, strip: a, light: false, glow: a,
-        };
-      case 'anma':
-        return {
-          bg1: '#1E1F22', bg2: '#0C0C0E', fg: '#F2F2F2', sub: '#B9B9BC', accent: '#C9C9CC', tagBg: '#3A3B40', tagFg: '#F2F2F2',
-          motif: '#FFFFFF', motifA: 0.035, strip: '#3A3B40', light: false, mono: true,
-        };
-      default: // koyu (lacivert)
-        return {
-          bg1: C.navy, bg2: C.deep, fg: '#FFFFFF', sub: 'rgba(255,255,255,.8)', accent: a, tagBg: a, tagFg: lightAccent ? C.deep : '#FFFFFF',
-          motif: '#FFFFFF', motifA: 0.07, strip: a, light: false,
-        };
+  // ---------------------------------------------------------------- palet
+  function palette(ground, C, mono) {
+    if (ground === 'kirmizi') {
+      return { red: true, bg: C.redDeep, fg: '#FFFFFF', sub: 'rgba(255,255,255,.92)', grey: 'rgba(255,255,255,.8)', accent: '#FFFFFF', accentFg: C.redDeep, rule: '#FFFFFF', motif: '#FFFFFF' };
     }
+    if (mono) {
+      return { red: false, mono: true, bg: '#FFFFFF', fg: '#1A1A1A', sub: '#3F3F3F', grey: '#6B6B6B', accent: '#1A1A1A', accentFg: '#FFFFFF', rule: '#1A1A1A', motif: '#CFCFCB' };
+    }
+    return { red: false, bg: '#FFFFFF', fg: C.ink, sub: '#333333', grey: C.grey, accent: C.red, accentFg: '#FFFFFF', rule: C.ink, motif: C.line };
   }
 
-  // ---------------------------------------------------------------- Arka plan desenleri
-  // Hepsi aynı görsel dili konuşur: ince çizgi, düşük opaklık, köşelerde yoğunlaşma, videoda yavaş hareket.
-  const PAT = {};
-  const tt = (t) => (isFinite(t) ? t : 0);
-
-  PAT.dalga = (ctx, env) => {
-    const { W, H, u, pal, t } = env;
-    const R = Math.max(W, H);
-    D.waves(ctx, W + 30 * u, H + 30 * u, 70 * u, 44 * u, Math.ceil(R / (44 * u)) + 2, pal.motif, pal.motifA * 1.6, 2 * u, tt(t) * 0.45);
-    cornerDot(ctx, env);
-  };
-  PAT.nokta = (ctx, env) => {
-    const { W, H, u, pal, t } = env;
-    const g = 34 * u;
-    ctx.save();
-    ctx.fillStyle = pal.motif;
-    for (let x = g / 2; x < W; x += g) for (let y = g / 2; y < H; y += g) {
-      const d = Math.hypot((W - x) / W, y / H); // sağ üstte yoğun
-      const a = Math.max(0, 1 - d * 1.15);
-      if (a <= 0.02) continue;
-      const tw = 0.75 + 0.25 * Math.sin(tt(t) * 2 + x * 0.01 + y * 0.013);
-      ctx.globalAlpha = pal.motifA * 4 * a * tw;
-      ctx.beginPath(); ctx.arc(x, y, 2.6 * u, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-    cornerDot(ctx, env);
-  };
-  PAT.cizgi = (ctx, env) => {
-    const { W, H, u, pal, t } = env;
-    ctx.save();
-    ctx.strokeStyle = pal.motif; ctx.lineWidth = 2 * u;
-    const step = 26 * u, off = (tt(t) * 14 * u) % step;
-    ctx.beginPath(); ctx.moveTo(W * 0.52, 0); ctx.lineTo(W, 0); ctx.lineTo(W, H * 0.48); ctx.closePath(); ctx.clip();
-    ctx.globalAlpha = pal.motifA * 2.2;
-    for (let k = -H; k < W + H; k += step) { ctx.beginPath(); ctx.moveTo(k + off, 0); ctx.lineTo(k + off - H, H); ctx.stroke(); }
-    ctx.restore();
-    ctx.save();
-    ctx.fillStyle = pal.accent; ctx.globalAlpha = 0.9;
-    ctx.beginPath(); ctx.moveTo(W, H); ctx.lineTo(W, H - 150 * u); ctx.lineTo(W - 150 * u, H); ctx.closePath(); ctx.fill();
-    ctx.restore();
-  };
-  PAT.daire = (ctx, env) => {
-    const { W, H, u, pal, t } = env;
-    const k = 1 + 0.03 * Math.sin(tt(t) * 0.8);
-    ctx.save();
-    ctx.globalAlpha = pal.motifA * 1.6; ctx.fillStyle = pal.motif;
-    ctx.beginPath(); ctx.arc(W * 0.98, H * 0.12, Math.min(W, H) * 0.42 * k, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 0.5; ctx.strokeStyle = pal.accent; ctx.lineWidth = 4 * u;
-    ctx.beginPath(); ctx.arc(W * 0.98, H * 0.12, Math.min(W, H) * 0.52 * k, Math.PI * 0.5, Math.PI * 1.1); ctx.stroke();
-    ctx.globalAlpha = pal.motifA * 1.3; ctx.fillStyle = pal.motif;
-    ctx.beginPath(); ctx.arc(-W * 0.05, H * 1.02, Math.min(W, H) * 0.3 / k, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    cornerDot(ctx, env);
-  };
-  PAT.sinyal = (ctx, env) => {
-    const { W, H, u, pal, t } = env;
-    // Çubuklar yalnızca sağ yarıda: altbilgi yazısıyla çakışmaz
-    const x0 = W * 0.48, n = Math.round((W - x0) / (22 * u)), bw = (W - x0) / n;
-    const base = H - 12 * u, maxH = Math.min(H * 0.2, 260 * u);
-    const r = D.rng(5);
-    ctx.save(); ctx.fillStyle = pal.motif;
-    for (let i = 0; i < n; i++) {
-      const h0 = r(), ph = r() * 6;
-      const env1 = Math.sin(((i + 1) / (n + 1)) * Math.PI) * 0.6 + 0.2;
-      const h = maxH * env1 * (0.35 + 0.65 * (isFinite(t) ? 0.5 + 0.5 * Math.sin(t * 3 + ph) : h0));
-      ctx.globalAlpha = pal.motifA * 1.8;
-      ctx.fillRect(x0 + i * bw + bw * 0.25, base - h, bw * 0.5, h);
-    }
-    ctx.restore();
-    cornerDot(ctx, env);
-  };
-  PAT.isik = (ctx, env) => {
-    const { W, H, pal, t } = env;
-    const glow = pal.glow || pal.accent;
-    const blob = (x, y, r, a) => {
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, D.hexA(glow.startsWith('#') ? glow : '#FFFFFF', a));
-      g.addColorStop(1, D.hexA(glow.startsWith('#') ? glow : '#FFFFFF', 0));
-      ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
-    };
-    const m = Math.max(W, H);
-    blob(W * (0.92 + 0.04 * Math.sin(tt(t) * 0.5)), H * 0.1, m * 0.55, pal.light ? 0.22 : 0.32);
-    blob(W * 0.05, H * (0.95 - 0.03 * Math.sin(tt(t) * 0.6)), m * 0.45, pal.light ? 0.14 : 0.2);
-  };
-  PAT.blok = (ctx, env) => {
-    const { W, H, u, pal, t } = env;
-    const p = D.prog(t, 0, 1);
-    ctx.save();
-    ctx.fillStyle = pal.accent;
-    ctx.fillRect(0, 0, 14 * u, H * p); // sol kenar çubuğu
-    ctx.globalAlpha = 0.9;
-    const s = 210 * u;
-    ctx.beginPath(); ctx.arc(W, H, s * p, Math.PI, Math.PI * 1.5); ctx.lineTo(W, H); ctx.fill();
-    ctx.globalAlpha = pal.motifA * 2; ctx.strokeStyle = pal.motif; ctx.lineWidth = 3 * u;
-    ctx.translate(W * 0.9, H * 0.08); ctx.rotate(Math.PI / 4 + tt(t) * 0.05);
-    ctx.strokeRect(-140 * u, -140 * u, 280 * u, 280 * u);
-    ctx.strokeRect(-95 * u, -95 * u, 190 * u, 190 * u);
-    ctx.restore();
-  };
-  PAT.sade = () => {};
-  function cornerDot(ctx, env) {
-    const { W, H, u, pal, t } = env;
-    ctx.save();
-    ctx.fillStyle = pal.strip;
-    ctx.beginPath(); ctx.arc(W, H, 70 * u * D.prog(t, 0.1, 0.8), Math.PI, Math.PI * 1.5); ctx.lineTo(W, H); ctx.fill();
-    ctx.restore();
-  }
-
-  // ---------------------------------------------------------------- Arka plan fotoğrafı
-  // Stiller: perde (tam + renk perdesi), duoton (iki renkli), yarim (görselin bir bölümü)
-  function photoLayer(ctx, env) {
-    const ph = env.photo;
-    if (!ph) return null;
-    const { W, H, u, pal, C } = env;
-    const z = isFinite(env.t) ? 1.06 - 0.06 * D.clamp(env.t / 10, 0, 1) : 1;
-    let r = { x: 0, y: 0, w: W, h: H };
-    if (ph.style === 'yarim') r = env.wide ? { x: W * 0.56, y: 0, w: W * 0.44, h: H } : { x: 0, y: 0, w: W, h: H * (env.tall ? 0.4 : 0.42) };
-    ctx.save();
-    ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
-    if (ph.style === 'duoton' || pal.mono) {
-      ctx.filter = 'grayscale(1) contrast(1.15)';
-      D.cover(ctx, ph.img, r.x, r.y, r.w, r.h, ph.fx, ph.fy, z);
-      ctx.filter = 'none';
-      if (!pal.mono) {
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.fillStyle = env.th === 'acik' ? D.shade(C[env.accentKey] || C.gold, 0.2) : C[env.accentKey] || C.gold;
-        ctx.fillRect(r.x, r.y, r.w, r.h);
-        ctx.globalCompositeOperation = 'lighten';
-        ctx.fillStyle = pal.light ? D.shade(C.navy, 0.15) : pal.bg2;
-        ctx.fillRect(r.x, r.y, r.w, r.h);
-        ctx.globalCompositeOperation = 'source-over';
-      }
-    } else {
-      D.cover(ctx, ph.img, r.x, r.y, r.w, r.h, ph.fx, ph.fy, z);
-    }
-    // Okunabilirlik perdesi
-    if (ph.style === 'yarim') {
-      const g = env.wide ? ctx.createLinearGradient(r.x, 0, r.x + r.w * 0.35, 0) : ctx.createLinearGradient(0, r.h, 0, r.h * 0.55);
-      g.addColorStop(0, D.hexA(pal.bg1.startsWith('#') ? pal.bg1 : '#000000', 1));
-      g.addColorStop(1, D.hexA(pal.bg1.startsWith('#') ? pal.bg1 : '#000000', 0));
-      ctx.fillStyle = g; ctx.fillRect(r.x, r.y, r.w, r.h);
-      const g2 = ctx.createLinearGradient(0, 0, 0, 220 * u); // başlık alanı
-      g2.addColorStop(0, 'rgba(0,0,0,.45)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g2; ctx.fillRect(r.x, 0, r.w, 220 * u);
-    } else {
-      const g = ctx.createLinearGradient(0, 0, env.wide ? W : 0, env.wide ? 0 : H);
-      const k = ph.style === 'duoton' ? 0.55 : 0.78;
-      g.addColorStop(0, D.hexA(pal.bg1, k));
-      g.addColorStop(0.6, D.hexA(pal.bg2, k * 0.92));
-      g.addColorStop(1, D.hexA(pal.bg2, env.wide ? k * 0.5 : k));
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    }
-    ctx.restore();
-    return r;
-  }
-
-  // ---------------------------------------------------------------- Ortak çerçeve
-  function background(ctx, env, opts = {}) {
-    const { W, H, u, pal, t } = env;
-    if (opts.bg !== false) {
-      const g = ctx.createLinearGradient(0, 0, W, H);
-      g.addColorStop(0, pal.bg1);
-      g.addColorStop(1, pal.bg2);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
-    }
-    const full = env.photo && env.photo.style !== 'yarim';
-    if (opts.waves !== false && !full) (PAT[env.pattern] || PAT.dalga)(ctx, env);
-    env.photoRect = opts.bg !== false ? photoLayer(ctx, env) : null;
-    // Alt kenar şeridi
-    ctx.fillStyle = pal.strip;
-    ctx.fillRect(0, H - 12 * u, W * D.prog(t, 0, 1.0), 12 * u);
-  }
-
-  function drawLogo(ctx, env, logo, x, y, maxW, maxH, alignRight) {
-    const img = env.logoImg(logo, env.pal.light);
+  // ---------------------------------------------------------------- imza, birim, alt bilgi
+  function drawLogo(ctx, env, logo, x, y, h, alignRight, maxW) {
+    const src = (env.pal.red ? logo.dark || logo.light : logo.light || logo.dark) || null;
+    const img = src ? env.getImage(src) : null;
     if (!img) return 0;
-    if (logo.panel && !env.pal.light) {
-      // Koyu yazılı logolar koyu zeminde beyaz plaka üzerinde gösterilir
-      const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-      const pad = maxH * 0.14;
-      const s = Math.min((maxW - 2 * pad) / iw, (maxH - 2 * pad) / ih);
-      const w = iw * s + 2 * pad;
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return 0;
+    if (logo.panel && env.pal.red) {
+      const pad = h * 0.16, s = Math.min((h - 2 * pad) / ih, ((maxW || h * 4) - 2 * pad) / iw), w = iw * s + 2 * pad;
       const x0 = alignRight ? x - w : x;
-      ctx.fillStyle = '#FFFFFF';
-      D.rr(ctx, x0, y, w, maxH, maxH * 0.12);
-      ctx.fill();
-      ctx.drawImage(img, x0 + pad, y + pad + (maxH - 2 * pad - ih * s) / 2, iw * s, ih * s);
+      ctx.fillStyle = '#FFFFFF'; D.rr(ctx, x0, y, w, h, h * 0.1); ctx.fill();
+      ctx.drawImage(img, x0 + pad, y + (h - ih * s) / 2, iw * s, ih * s);
       return w;
     }
-    return D.contain(ctx, img, x, y, maxW, maxH, alignRight);
+    const s = Math.min(h / ih, (maxW || h * 5) / iw), w = iw * s, hh = ih * s;
+    const x0 = alignRight ? x - w : x;
+    ctx.drawImage(img, x0, y + (h - hh) / 2, w, hh);
+    if (logo.outlineOnRed && env.pal.red) { ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3 * env.u; ctx.strokeRect(x0, y + (h - hh) / 2, w, hh); }
+    return w;
   }
 
-  function header(ctx, env) {
-    const { u, W, brand, m, top, t } = env;
-    // Başlık fotoğrafın üstüne denk geliyorsa (Yarım modu) yazılar beyaz olur
-    const onPhoto = env.photo && env.photo.style === 'yarim' && !env.wide;
-    const pal = onPhoto ? Object.assign({}, env.pal, { fg: '#FFFFFF', sub: 'rgba(255,255,255,.88)', light: false }) : env.pal;
-    env = onPhoto ? Object.assign({}, env, { pal }) : env;
-    const H0 = 92 * u;
+  function signature(ctx, env) {
+    const { u, brand, m, top, t } = env;
     ctx.save();
-    ctx.globalAlpha = D.prog(t, 0, 0.6);
+    ctx.globalAlpha *= D.prog(t, 0, 0.6);
     let x = m;
     const main = brand.logos.filter((l) => l.group === 'ana');
-    for (const l of main) {
-      const w = drawLogo(ctx, env, l, x, top, 260 * u, H0);
-      if (w) x += w + 24 * u;
-    }
-    const textMax = W - x - m - (env.unit ? 300 * u : 0);
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = pal.sub;
-    ctx.font = D.font(600, 21 * u, brand.fonts.head);
-    D.ls(ctx, 3 * u);
-    ctx.fillText(D.upper(brand.university), x, top + 38 * u, textMax);
-    ctx.fillStyle = pal.fg;
-    ctx.font = D.font(800, 31 * u, brand.fonts.head);
-    D.ls(ctx, 1 * u);
-    ctx.fillText(D.upper(brand.faculty), x, top + 76 * u, textMax);
-    D.ls(ctx, 0);
-
-    // Sağ üst: seçili bölüm / atölye
-    if (env.unit) {
-      const right = W - m;
-      const w = drawLogo(ctx, env, env.unit, right, top + 4 * u, 280 * u, H0 - 8 * u, true);
-      if (!w) {
-        const f = D.fit(ctx, env.unit.name, { weight: 700, family: brand.fonts.head, max: 24 * u, min: 16 * u, maxW: 280 * u, maxH: H0, lh: 1.15, maxLines: 3, upper: true, ls: 1 * u });
-        const y = top + (H0 - f.h) / 2;
-        ctx.fillStyle = pal.accent;
-        ctx.fillRect(right - f.w - 18 * u, y + 4 * u, 4 * u, f.h - 8 * u);
-        D.drawFit(ctx, f, right - f.w, y, f.w, 'left', pal.fg);
-      }
+    main.forEach((l, i) => { const h = (i === 0 ? 64 : 56) * u; const w = drawLogo(ctx, env, l, x, top + (64 * u - h) / 2, h); if (w) x += w + 18 * u; });
+    if (env.badge) { const b = brand.logos.find((l) => l.group === 'rozet'); if (b) { const w = drawLogo(ctx, env, b, x, top - 2 * u, 68 * u); if (w) x += w + 18 * u; } }
+    // sağ üst: birim (logo + ad) ya da serbest üst bilgi
+    const right = env.W - m - env.mr;
+    const label = env.unit ? env.unit.name : env.topRight;
+    let rx = right;
+    if (env.unit) { const w = drawLogo(ctx, env, env.unit, right, top + 4 * u, 56 * u, true, 220 * u); if (w) rx = right - w - 18 * u; }
+    if (label) {
+      ctx.fillStyle = env.pal.grey; ctx.font = D.font(500, 26 * u, env.brand.fonts.body);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      const maxW = rx - (x + 40 * u);
+      if (maxW > 160 * u) ctx.fillText(label, rx, top + 32 * u, maxW);
+      ctx.textAlign = 'left';
     }
     ctx.restore();
-    return top + H0;
+    return top + 64 * u;
   }
 
-  function footer(ctx, env) {
-    const { u, W, pal, brand, m, bottom, t } = env;
-    const y = bottom - 40 * u;
+  function footer(ctx, env, left, right) {
+    const { u, m, bottom, t, pal, brand } = env;
     ctx.save();
-    ctx.globalAlpha = D.prog(t, 0.2, 0.6);
-    ctx.fillStyle = pal.accent;
-    ctx.fillRect(m, y - 30 * u, 56 * u, 5 * u);
-    ctx.fillStyle = pal.sub;
-    ctx.font = D.font(600, 25 * u, brand.fonts.body);
-    ctx.textBaseline = 'middle';
-    const parts = [brand.web, brand.social].filter(Boolean);
-    ctx.fillText(parts.join('   ·   '), m, y + 6 * u, W - 2 * m - 110 * u);
+    ctx.globalAlpha *= D.prog(t, 0.3, 0.6);
+    ctx.fillStyle = pal.grey; ctx.font = D.font(500, 25 * u, brand.fonts.body); ctx.textBaseline = 'alphabetic';
+    if (left) ctx.fillText(left, m, bottom, env.W * 0.6);
+    if (right) { ctx.textAlign = 'right'; ctx.fillText(right, env.W - m - env.mr, bottom, env.W * 0.35); ctx.textAlign = 'left'; }
     ctx.restore();
-    return y - 30 * u;
   }
 
-  // Arka plan + başlık + alt bilgi çizer, içerik kutusunu döndürür.
-  function frame(ctx, env, opts) {
-    background(ctx, env, opts);
-    const hb = header(ctx, env);
-    const ft = footer(ctx, env);
-    const gapTop = (env.tall ? 90 : env.wide ? 50 : 60) * env.u;
-    const gapBot = (env.tall ? 70 : 44) * env.u;
-    const box = { x: env.m, y: hb + gapTop, w: env.W - 2 * env.m - env.mr, h: ft - gapBot - (hb + gapTop) };
-    const r = env.photoRect;
-    if (r && env.photo.style === 'yarim') {
-      if (env.wide) box.w = r.x - env.m - 60 * env.u;
-      else { const y = Math.max(box.y, r.y + r.h + 10 * env.u); box.h -= y - box.y; box.y = y; }
-    }
-    return box;
-  }
-
-  // ---------------------------------------------------------------- Yerleşim motoru
-  // Blokları dikey olarak kutuya yerleştirir; esnek bloklar kalan alanı paylaşır.
+  // ---------------------------------------------------------------- yerleşim (dikey yığın)
+  // Blok: { gap, flex, spacer, layout(ctx, w, maxH) -> { h, draw(ctx, x, y, w) } }
+  const none = { h: 0, draw() {} };
   function stack(ctx, env, box, blocks, opts = {}) {
     blocks = blocks.filter(Boolean);
-    if (!blocks.length) return 0;
     const u = env.u;
-    const gapOf = (b, i) => (i ? (b.gap != null ? b.gap : opts.gap != null ? opts.gap : 30) * u : 0);
+    // sığmıyorsa yazı ölçeğini orantılı küçült (ör. Reels'in dar alanı)
+    if (!opts.measure && !opts.noShrink) {
+      const fs0 = env.fs;
+      for (let i = 0; i < 6; i++) {
+        const need = stack(ctx, env, { x: box.x, y: 0, w: box.w, h: 0 }, blocks.filter((b) => !b.spacer), { measure: true, natural: true });
+        if (need <= box.h + 1 || env.fs < fs0 * 0.62) break;
+        env.fs *= Math.max(0.8, (box.h / need) * 0.98);
+      }
+      const r = stack(ctx, env, box, blocks, Object.assign({}, opts, { noShrink: true }));
+      env.fs = fs0;
+      return r;
+    }
+    const gapOf = (b, i) => (i ? (b.gap != null ? b.gap : 28) * u : 0);
     const gaps = blocks.reduce((s, b, i) => s + gapOf(b, i), 0);
-    const lays = blocks.map((b) => (b.flex ? null : b.layout(ctx, box.w, Infinity)));
-    const fixedH = lays.reduce((s, l) => s + (l ? l.h : 0), 0);
-    const totalFlex = blocks.reduce((s, b) => s + (b.flex || 0), 0);
-    const rem = Math.max(0, box.h - fixedH - gaps);
-    blocks.forEach((b, i) => { if (b.flex) lays[i] = b.layout(ctx, box.w, (rem * b.flex) / totalFlex); });
-    // Kullanılmayan alanı sırayla diğer esnek bloklara ver
-    let spare = rem - blocks.reduce((s, b, i) => s + (b.flex ? lays[i].h : 0), 0);
+    const lays = blocks.map((b) => (b.flex || b.spacer ? null : b.layout(ctx, box.w, Infinity)));
+    const fixed = lays.reduce((s, l) => s + (l ? l.h : 0), 0);
+    const rem = Math.max(0, box.h - fixed - gaps);
+    const flexers = blocks.filter((b) => b.flex && !b.spacer);
+    const tot = flexers.reduce((s, b) => s + b.flex, 0) || 1;
+    blocks.forEach((b, i) => { if (b.flex && !b.spacer) lays[i] = b.layout(ctx, box.w, opts.natural ? Infinity : (rem * b.flex) / tot); });
+    let spare = rem - blocks.reduce((s, b, i) => s + (b.flex && !b.spacer ? lays[i].h : 0), 0);
+    // artan alanı önce esnek bloklara geri ver (başlık büyüyebilir), kalanı boşluğa
     blocks.forEach((b, i) => {
-      if (!b.flex || spare < 4 * u) return;
+      if (opts.natural || !b.flex || b.spacer || spare < 4 * u) return;
       const before = lays[i].h;
-      lays[i] = b.layout(ctx, box.w, (rem * b.flex) / totalFlex + spare);
+      lays[i] = b.layout(ctx, box.w, (rem * b.flex) / tot + spare);
       spare -= lays[i].h - before;
     });
+    const nsp = blocks.filter((b) => b.spacer).length;
+    blocks.forEach((b, i) => { if (b.spacer) lays[i] = { h: Math.max(0, spare / nsp), draw() {} }; });
     const total = lays.reduce((s, l) => s + l.h, 0) + gaps;
     if (opts.measure) return total;
-    const align = opts.valign || 'center';
-    let y = align === 'top' ? box.y : align === 'bottom' ? box.y + box.h - total : box.y + (box.h - total) / 2;
+    let y = nsp ? box.y : opts.valign === 'center' ? box.y + (box.h - total) / 2 : opts.valign === 'bottom' ? box.y + box.h - total : box.y;
     const delay = opts.delay != null ? opts.delay : 0.35;
+    let k = 0;
     lays.forEach((l, i) => {
       y += gapOf(blocks[i], i);
-      const p = D.prog(env.t, delay + i * 0.13, 0.75);
-      ctx.save();
-      ctx.globalAlpha *= p;
-      ctx.translate(0, (1 - p) * 40 * u);
-      l.draw(ctx, box.x, y, box.w);
-      ctx.restore();
+      if (!blocks[i].spacer) {
+        const p = D.prog(env.t, delay + k * 0.12, env.calm ? 1.4 : 0.8);
+        ctx.save(); ctx.globalAlpha *= p; ctx.translate(0, (1 - p) * (env.calm ? 0 : 28) * u);
+        l.draw(ctx, box.x, y, box.w);
+        ctx.restore(); k++;
+      }
       y += l.h;
     });
     return total;
   }
 
-  const none = { h: 0, draw() {} };
+  // ---------------------------------------------------------------- bloklar
+  const B = {};
+  B.spacer = () => ({ spacer: true, layout: () => none });
 
-  // Blok üreticileri
-  const B = {
-    tag(env, text, o = {}) {
-      if (!text) return null;
-      const { u, pal, brand } = env;
-      return {
-        gap: o.gap,
-        layout(ctx) {
-          const fz = 24 * u * Math.min(env.fs, 1.2);
-          ctx.font = D.font(800, fz, brand.fonts.head);
-          D.ls(ctx, 3 * u);
-          const label = D.upper(text);
-          const tw = ctx.measureText(label).width;
-          D.ls(ctx, 0);
-          const h = fz * 2.15, bw = tw + 44 * u;
-          return {
-            h,
-            draw(ctx, x, y, w) {
-              const x0 = o.align === 'center' ? x + (w - bw) / 2 : x;
-              ctx.fillStyle = o.bg || pal.tagBg;
-              D.rr(ctx, x0, y, bw, h, 8 * u);
-              ctx.fill();
-              ctx.fillStyle = o.fg || pal.tagFg;
-              ctx.font = D.font(800, fz, brand.fonts.head);
-              D.ls(ctx, 3 * u);
-              ctx.textBaseline = 'middle';
-              ctx.fillText(label, x0 + 22 * u, y + h / 2 + 1 * u);
-              D.ls(ctx, 0);
-            },
-          };
-        },
-      };
-    },
-
-    rule(env, o = {}) {
-      const { u, pal } = env;
-      return {
-        gap: o.gap,
-        layout() {
-          return {
-            h: 8 * u,
-            draw(ctx, x, y, w) {
-              const bw = (o.w || 110) * u;
-              ctx.fillStyle = o.color || pal.accent;
-              ctx.fillRect(o.align === 'center' ? x + (w - bw) / 2 : x, y, bw * D.prog(env.t, 0.5, 0.9), 8 * u);
-            },
-          };
-        },
-      };
-    },
-
-    text(env, text, o = {}) {
-      if (!text || !String(text).trim()) return null;
-      const { u, pal, brand } = env;
-      const family = o.family || (o.serif ? brand.fonts.serif : o.body ? brand.fonts.body : brand.fonts.head);
-      return {
-        gap: o.gap,
-        flex: o.flex != null ? o.flex : 1,
-        layout(ctx, w, maxH) {
-          const max = o.max * u * env.fs;
-          const mh = isFinite(maxH) ? maxH : max * (o.lh || 1.2) * (o.maxLines || 3);
-          const f = D.fit(ctx, text, {
-            weight: o.weight || 700, family, max, min: (o.min || o.max * 0.4) * u * Math.min(env.fs, 1.15), maxW: w * (o.wr || 1), maxH: mh,
-            lh: o.lh || 1.15, upper: o.upper, maxLines: o.maxLines, ls: o.ls ? o.ls * u : 0,
-          });
-          if (o.italic) f.weight = 'italic ' + f.weight;
-          return { h: f.h, draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x, y, bw, o.align, o.color || pal.fg) };
-        },
-      };
-    },
-
-    // Satırlar: [{icon, text}]
-    meta(env, rows, o = {}) {
-      rows = rows.filter((r) => r.text && String(r.text).trim());
-      if (!rows.length) return null;
-      const { u, pal, brand } = env;
-      const size = (o.size || 34) * u * env.fs;
-      return {
-        gap: o.gap,
-        layout(ctx, w) {
-          const is = size * 1.05, ind = is + 20 * u;
-          ctx.font = D.font(600, size, brand.fonts.body);
-          const items = rows.map((r) => ({ r, lines: D.wrap(ctx, r.text, (o.align === 'center' ? w * 0.9 : w) - ind).slice(0, 2) }));
-          const lh = size * 1.25, rg = 14 * u;
-          const h = items.reduce((s, it) => s + it.lines.length * lh, 0) + rg * (items.length - 1);
-          return {
-            h,
-            draw(ctx, x, y, bw) {
-              let yy = y;
-              items.forEach((it) => {
-                ctx.font = D.font(600, size, brand.fonts.body);
-                const tw = Math.max(...it.lines.map((l) => ctx.measureText(l).width));
-                const x0 = o.align === 'center' ? x + (bw - tw - ind) / 2 : x;
-                D.icon(ctx, it.r.icon, x0, yy + (lh - is) / 2, is, pal.accent);
-                ctx.fillStyle = pal.fg;
-                ctx.textBaseline = 'middle';
-                it.lines.forEach((l, i) => ctx.fillText(l, x0 + ind, yy + i * lh + lh / 2));
-                yy += it.lines.length * lh + rg;
-              });
-            },
-          };
-        },
-      };
-    },
-
-    // Madde işaretli liste (her satır bir madde)
-    list(env, text, o = {}) {
-      const items = String(text || '').split('\n').map((s) => s.replace(/^[-•*\s]+/, '').trim()).filter(Boolean);
-      if (!items.length) return null;
-      const { u, pal, brand } = env;
-      return {
-        gap: o.gap,
-        flex: o.flex || 1,
-        layout(ctx, w, maxH) {
-          let size = (o.max || 38) * u * env.fs;
-          const min = (o.min || 20) * u;
-          let res;
-          for (;;) {
-            ctx.font = D.font(500, size, brand.fonts.body);
-            const ind = size * 1.2, lh = size * 1.25, ig = size * 0.45;
-            const ls = items.map((t) => D.wrap(ctx, t, w - ind));
-            const h = ls.reduce((s, l) => s + l.length * lh, 0) + ig * (items.length - 1);
-            res = { size, ind, lh, ig, ls, h };
-            if (h <= maxH || size <= min) break;
-            size = Math.max(min, size * 0.93);
-          }
-          return {
-            h: Math.min(res.h, maxH),
-            draw(ctx, x, y) {
-              let yy = y;
-              ctx.save();
-              ctx.beginPath();
-              ctx.rect(x - 10 * u, y - 4 * u, w + 20 * u, maxH + 8 * u);
-              ctx.clip();
-              res.ls.forEach((lines) => {
-                ctx.fillStyle = pal.accent;
-                ctx.fillRect(x, yy + res.lh / 2 - res.size * 0.16, res.size * 0.32, res.size * 0.32);
-                ctx.fillStyle = pal.fg;
-                ctx.font = D.font(500, res.size, brand.fonts.body);
-                ctx.textBaseline = 'middle';
-                lines.forEach((l, i) => ctx.fillText(l, x + res.ind, yy + i * res.lh + res.lh / 2));
-                yy += lines.length * res.lh + res.ig;
-              });
-              ctx.restore();
-            },
-          };
-        },
-      };
-    },
-
-    // Vurgulu bilgi kutusu (ör. SON BAŞVURU — 15 Ekim)
-    callout(env, label, value, o = {}) {
-      if (!value) return null;
-      const { u, pal, brand } = env;
-      return {
-        gap: o.gap,
-        layout(ctx, w) {
-          const pad = 26 * u;
-          const V = 44 * u * Math.min(env.fs, 1.2);
-          ctx.font = D.font(800, V, brand.fonts.head);
-          const vw = Math.min(ctx.measureText(value).width, w - 2 * pad);
-          ctx.font = D.font(700, 21 * u, brand.fonts.head);
-          D.ls(ctx, 3 * u);
-          const lw = ctx.measureText(D.upper(label)).width;
-          D.ls(ctx, 0);
-          const bw = Math.max(vw, lw) + 2 * pad, h = 21 * u + 12 * u + V + 2 * pad;
-          return {
-            h,
-            draw(ctx, x, y, w2) {
-              const x0 = o.align === 'center' ? x + (w2 - bw) / 2 : x;
-              ctx.fillStyle = pal.tagBg;
-              D.rr(ctx, x0, y, bw, h, 12 * u);
-              ctx.fill();
-              ctx.fillStyle = pal.tagFg;
-              ctx.textBaseline = 'top';
-              ctx.font = D.font(700, 21 * u, brand.fonts.head);
-              D.ls(ctx, 3 * u);
-              ctx.globalAlpha *= 0.85;
-              ctx.fillText(D.upper(label), x0 + pad, y + pad);
-              ctx.globalAlpha /= 0.85;
-              D.ls(ctx, 0);
-              ctx.font = D.font(800, V, brand.fonts.head);
-              ctx.fillText(value, x0 + pad, y + pad + 33 * u, w2 - 2 * pad);
-            },
-          };
-        },
-      };
-    },
-
-    // Tarih | açıklama tablosu
-    table(env, text, o = {}) {
-      const rows = String(text || '').split('\n').map((l) => l.split('|').map((s) => s.trim())).filter((r) => r[0]);
-      if (!rows.length) return null;
-      const { u, pal, brand } = env;
-      return {
-        gap: o.gap,
-        flex: o.flex || 1,
-        layout(ctx, w, maxH) {
-          let size = 38 * u * env.fs;
-          let res;
-          for (;;) {
-            ctx.font = D.font(800, size, brand.fonts.head);
-            const dw = Math.min(w * 0.42, Math.max(...rows.map((r) => ctx.measureText(r[0]).width)));
-            const col = dw + size * 1.2;
-            ctx.font = D.font(500, size, brand.fonts.body);
-            const lh = size * 1.22, pad = size * 0.55;
-            const ls = rows.map((r) => D.wrap(ctx, r[1] || '', w - col));
-            const dl = rows.map((r) => { ctx.font = D.font(800, size, brand.fonts.head); return D.wrap(ctx, r[0], dw + 1); });
-            const hs = ls.map((l, i) => Math.max(l.length, dl[i].length) * lh + 2 * pad);
-            const h = hs.reduce((s, x) => s + x, 0);
-            res = { size, col, lh, pad, ls, dl, hs, h };
-            if (h <= maxH || size <= 18 * u) break;
-            size *= 0.93;
-          }
-          return {
-            h: Math.min(res.h, maxH),
-            draw(ctx, x, y, bw) {
-              let yy = y;
-              res.ls.forEach((lines, i) => {
-                const rh = res.hs[i];
-                if (yy + rh > y + maxH + 1) return;
-                ctx.fillStyle = pal.accent;
-                ctx.font = D.font(800, res.size, brand.fonts.head);
-                ctx.textBaseline = 'middle';
-                res.dl[i].forEach((l, k) => ctx.fillText(l, x, yy + res.pad + k * res.lh + res.lh / 2));
-                ctx.fillStyle = pal.fg;
-                ctx.font = D.font(500, res.size, brand.fonts.body);
-                lines.forEach((l, k) => ctx.fillText(l, x + res.col, yy + res.pad + k * res.lh + res.lh / 2));
-                yy += rh;
-                if (i < res.ls.length - 1) {
-                  ctx.fillStyle = pal.sub;
-                  ctx.globalAlpha *= 0.3;
-                  ctx.fillRect(x, yy - 1 * u, bw, 2 * u);
-                  ctx.globalAlpha /= 0.3;
-                }
-              });
-            },
-          };
-        },
-      };
-    },
-
-    // Dikdörtgen fotoğraf
-    image(env, img, o = {}) {
-      if (!img) return null;
-      const { u } = env;
-      return {
-        gap: o.gap,
-        flex: o.flex || 1,
-        layout(ctx, w, maxH) {
-          const h = Math.min(maxH, w / (o.aspect || 16 / 9));
-          if (h < 140 * u) return none;
-          return {
-            h,
-            draw(ctx, x, y) {
-              ctx.save();
-              D.rr(ctx, x, y, w, h, 18 * u);
-              ctx.clip();
-              D.cover(ctx, img, x, y, w, h, o.fx, o.fy);
-              ctx.restore();
-            },
-          };
-        },
-      };
-    },
-
-    // Yuvarlak portre + dalga halkaları
-    portrait(env, img, o = {}) {
-      const { u, pal, brand } = env;
-      return {
-        gap: o.gap,
-        flex: o.flex || 1,
-        layout(ctx, w, maxH) {
-          const d = Math.min(maxH, w * 0.62, (o.maxD || 520) * u);
-          if (d < 160 * u) return none;
-          return {
-            h: d,
-            draw(ctx, x, y, bw) {
-              const cx = o.align === 'left' ? x + d / 2 : x + bw / 2, cy = y + d / 2, r = d / 2;
-              D.waves(ctx, cx, cy, r + 18 * u, 22 * u, 5, pal.accent, 0.55, 3 * u, isFinite(env.t) ? env.t * 0.6 : 0);
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(cx, cy, r, 0, Math.PI * 2);
-              ctx.clip();
-              if (img) {
-                if (pal.mono) ctx.filter = 'grayscale(1)';
-                D.cover(ctx, img, cx - r, cy - r, d, d, o.fx, o.fy);
-                ctx.filter = 'none';
-              } else {
-                ctx.fillStyle = D.hexA('#FFFFFF', 0.12);
-                ctx.fillRect(cx - r, cy - r, d, d);
-                D.icon(ctx, 'kisi', cx - r * 0.5, cy - r * 0.45, r, pal.sub);
-              }
-              ctx.restore();
-              ctx.strokeStyle = pal.accent;
-              ctx.lineWidth = 8 * u;
-              ctx.beginPath();
-              ctx.arc(cx, cy, r, 0, Math.PI * 2);
-              ctx.stroke();
-              void brand;
-            },
-          };
-        },
-      };
-    },
-
-    // İş birliği / destekçi logoları: beyaz plakalar üzerinde yatay şerit
-    partners(env, imgs, label, o = {}) {
-      imgs = (imgs || []).filter(Boolean);
-      if (!imgs.length) return null;
-      const { u, pal, brand } = env;
-      return {
-        gap: o.gap != null ? o.gap : 40,
-        layout(ctx, w) {
-          const lh = label ? 30 * u : 0;
-          let ph = 84 * u * Math.min(env.fs, 1.15);
-          const pad = ph * 0.16, gap = 14 * u;
-          const widths = (s) => imgs.map((img) => {
-            const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-            return Math.min((ph - 2 * pad) * (iw / ih), ph * 2.6) + 2 * pad;
-          });
-          let ws = widths();
-          let tot = ws.reduce((a, b) => a + b, 0) + gap * (imgs.length - 1);
-          if (tot > w) { ph *= w / tot; ws = widths(); tot = w; }
-          return {
-            h: lh + ph,
-            draw(ctx, x, y, bw) {
-              let xx = o.align === 'center' ? x + (bw - tot) / 2 : x;
-              if (label) {
-                ctx.fillStyle = pal.sub;
-                ctx.font = D.font(700, 19 * u, brand.fonts.head);
-                D.ls(ctx, 3 * u);
-                ctx.textBaseline = 'top';
-                ctx.textAlign = o.align === 'center' ? 'center' : 'left';
-                ctx.fillText(D.upper(label), o.align === 'center' ? x + bw / 2 : x, y);
-                ctx.textAlign = 'left';
-                D.ls(ctx, 0);
-              }
-              imgs.forEach((img, i) => {
-                const pw = ws[i];
-                ctx.fillStyle = '#FFFFFF';
-                D.rr(ctx, xx, y + lh, pw, ph, 10 * u);
-                ctx.fill();
-                D.contain(ctx, img, xx + (ph * 0.16), y + lh + ph * 0.16, pw - ph * 0.32, ph - ph * 0.32);
-                xx += pw + gap;
-              });
-            },
-          };
-        },
-      };
-    },
-
-    custom(o) { return o; },
+  B.cat = (env, text, o = {}) => {
+    if (!text) return null;
+    const { u, pal, brand } = env;
+    const fz = 30 * u * Math.min(env.fs, 1.15);
+    return { gap: o.gap, layout() { return { h: fz * 1.2, draw(ctx, x, y) {
+      const sq = fz * 0.74;
+      ctx.fillStyle = o.square || pal.accent; ctx.fillRect(x, y + (fz * 1.2 - sq) / 2, sq, sq);
+      ctx.fillStyle = pal.fg; ctx.font = D.font(600, fz, brand.fonts.body); ctx.textBaseline = 'middle';
+      ctx.fillText(text, x + sq + fz * 0.55, y + fz * 0.62);
+      ctx.textBaseline = 'alphabetic';
+    } }; } };
   };
 
-  // ---------------------------------------------------------------- İllüstrasyonlar
-  function illusColors(env) {
-    const { C, pal } = env;
-    if (pal.mono) return { A: '#8E8E94', A2: '#5E5E64', P: '#E4E4E7', K: '#2A2A2E', S: 'rgba(255,255,255,.05)' };
-    const onColor = env.th === 'renkli' || env.th === 'kirmizi';
-    const A = onColor ? C.navy : C[env.accentKey] || C.gold;
-    return { A, A2: D.shade(A, -0.3), P: '#FFFFFF', K: C.navy, S: onColor ? 'rgba(255,255,255,.16)' : D.hexA(A, pal.light ? 0.13 : 0.16) };
-  }
-  // Seçim değerini (görünen ad) çizim anahtarına çevirir; 'Otomatik' => auto
-  function illusKey(val, auto) {
-    if (!val || val === 'Otomatik') return auto || null;
-    if (val === 'Yok') return null;
-    const L = window.ILLUS || {};
-    return Object.keys(L).find((k) => L[k].name === val) || (L[val] ? val : null);
-  }
-  function drawArt(ctx, env, key, x, y, s, delay) {
-    const it = window.ILLUS && window.ILLUS[key];
-    if (!it || s < 40 * env.u) return;
-    const t = env.t;
-    const p = D.prog(t, delay != null ? delay : 0.5, 0.9);
-    const fl = isFinite(t) ? Math.sin(t * 1.4) * 0.012 * s : 0; // hafif süzülme
+  B.title = (env, text, o = {}) => {
+    if (!text || !String(text).trim()) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap, flex: o.flex != null ? o.flex : 2, layout(ctx, w, maxH) {
+      const max = (o.max || 120) * u * env.fs;
+      const mh = isFinite(maxH) ? maxH : max * (o.maxLines || 3);
+      const f = D.fit(ctx, text, { weight: o.weight || 600, family: brand.fonts.head, max, min: (o.min || 52) * u * Math.min(env.fs, 1.1), maxW: w * (o.wr || 1), maxH: mh, lh: o.lh || 1.0, lsEm: o.lsEm != null ? o.lsEm : -0.035, maxLines: o.maxLines });
+      return { h: f.h, draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x - f.size * 0.03, y, bw, o.align, o.color || pal.fg) };
+    } };
+  };
+
+  B.lead = (env, text, o = {}) => {
+    if (!text || !String(text).trim()) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap != null ? o.gap : 30, flex: o.flex != null ? o.flex : 1, layout(ctx, w, maxH) {
+      const max = (o.max || 34) * u * env.fs;
+      const f = D.fit(ctx, text, { weight: o.weight || 400, family: brand.fonts.body, max, min: (o.min || 24) * u, maxW: w * (o.wr || 0.92), maxH: isFinite(maxH) ? maxH : max * 1.4 * (o.maxLines || 4), lh: 1.38, lsEm: -0.005, maxLines: o.maxLines });
+      return { h: f.h, draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x, y, bw, o.align, o.color || pal.sub) };
+    } };
+  };
+
+  // Tarih · Saat · Yer gibi bilgi satırı (ince çizgiyle)
+  B.facts = (env, items, o = {}) => {
+    items = items.filter((it) => it && it.v && String(it.v).trim());
+    if (!items.length) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap != null ? o.gap : 40, layout(ctx, w) {
+      const lab = 24 * u * Math.min(env.fs, 1.1), val = 32 * u * Math.min(env.fs, 1.15), lh = val * 1.16;
+      ctx.font = D.font(600, val, brand.fonts.body);
+      const weights = items.map((it) => Math.max(7, Math.min(22, String(it.v).length)));
+      const sum = weights.reduce((a, b) => a + b, 0);
+      const cols = items.map((it, i) => {
+        const cw = (w * weights[i]) / sum;
+        let sz = val;
+        ctx.font = D.font(600, sz, brand.fonts.body);
+        const longest = () => String(it.v).split(/\s+/).reduce((m, x) => Math.max(m, ctx.measureText(x).width), 0);
+        while (longest() > cw - 24 * u && sz > 20 * u) { sz *= 0.94; ctx.font = D.font(600, sz, brand.fonts.body); }
+        return { it, cw, sz, lines: D.wrap(ctx, String(it.v), cw - 24 * u).slice(0, 2) };
+      });
+      const h = 20 * u + lab * 1.4 + Math.max(...cols.map((c) => c.lines.length)) * lh;
+      return { h, draw(ctx, x, y) {
+        ctx.fillStyle = pal.rule; ctx.fillRect(x, y, w, 1.6 * u);
+        let cx = x;
+        cols.forEach((c) => {
+          ctx.fillStyle = pal.grey; ctx.font = D.font(500, lab, brand.fonts.body); ctx.textBaseline = 'top';
+          ctx.fillText(c.it.k, cx, y + 20 * u);
+          ctx.fillStyle = pal.fg; ctx.font = D.font(600, c.sz, brand.fonts.body);
+          c.lines.forEach((l, k) => ctx.fillText(l, cx, y + 20 * u + lab * 1.4 + k * lh));
+          cx += c.cw;
+        });
+        ctx.textBaseline = 'alphabetic';
+      } };
+    } };
+  };
+
+  // Kırmızı kare: tarih kutusu + yanında saat/yer
+  B.dateSq = (env, dateStr, side, o = {}) => {
+    const p = D.parseDate(dateStr);
+    if (!p && !dateStr) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap != null ? o.gap : 44, layout() {
+      const s = (o.size || 250) * u * Math.min(env.fs, 1.2);
+      return { h: s, draw(ctx, x, y) {
+        const pr = D.prog(env.t, 0.9, 0.6);
+        ctx.fillStyle = pal.accent; ctx.fillRect(x, y + s * (1 - pr), s, s * pr);
+        ctx.fillStyle = pal.accentFg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if (p) {
+          ctx.font = D.font(600, s * 0.1, brand.fonts.body); ctx.fillText(p.weekday, x + s / 2, y + s * 0.19);
+          D.ls(ctx, -0.04 * s * 0.42); ctx.font = D.font(600, s * 0.42, brand.fonts.head); ctx.fillText(String(p.d), x + s / 2, y + s * 0.52); D.ls(ctx, 0);
+          ctx.font = D.font(600, s * 0.11, brand.fonts.body); ctx.fillText(p.month, x + s / 2, y + s * 0.83);
+        } else { ctx.font = D.font(600, s * 0.16, brand.fonts.body); ctx.fillText(String(dateStr), x + s / 2, y + s / 2, s * 0.9); }
+        ctx.textAlign = 'left';
+        const lines = (side || []).filter(Boolean);
+        const fz = 34 * u * Math.min(env.fs, 1.15);
+        ctx.textBaseline = 'top';
+        lines.forEach((l, i) => { ctx.fillStyle = i ? pal.fg : pal.sub; ctx.font = D.font(i ? 600 : 500, fz, brand.fonts.body); ctx.fillText(l, x + s + 40 * u, y + 10 * u + i * fz * 1.4, 520 * u); });
+        ctx.textBaseline = 'alphabetic';
+      } };
+    } };
+  };
+
+  // Büyük rakam + açıklama (burs miktarı, puan, kontenjan)
+  B.bignum = (env, num, sub, o = {}) => {
+    if (!num) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap, layout(ctx, w) {
+      const big = (o.size || 230) * u * env.fs;
+      const f = D.fit(ctx, num, { weight: 600, family: brand.fonts.head, max: big, min: 80 * u, maxW: w, maxH: big * 1.05, lh: 1.0, lsEm: -0.05, maxLines: 1 });
+      const sz = 32 * u * Math.min(env.fs, 1.15);
+      return { h: f.h + (sub ? sz * 1.6 : 0), draw(ctx, x, y, bw) {
+        D.drawFit(ctx, f, x - f.size * 0.035, y, bw, 'left', pal.fg);
+        if (sub) { ctx.fillStyle = pal.sub; ctx.font = D.font(400, sz, brand.fonts.body); ctx.textBaseline = 'top'; ctx.fillText(sub, x, y + f.h + sz * 0.3, bw); ctx.textBaseline = 'alphabetic'; }
+      } };
+    } };
+  };
+
+  B.rule = (env, o = {}) => ({ gap: o.gap, layout: () => ({ h: 1.6 * env.u, draw(ctx, x, y, w) { ctx.fillStyle = o.color || env.pal.motif; ctx.fillRect(x, y, w, 1.6 * env.u); } }) });
+
+  B.list = (env, text, o = {}) => {
+    const items = String(text || '').split('\n').map((s) => s.replace(/^[-•*\s]+/, '').trim()).filter(Boolean);
+    if (!items.length) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap != null ? o.gap : 30, flex: 1, layout(ctx, w, maxH) {
+      let size = 32 * u * env.fs, res;
+      for (;;) {
+        ctx.font = D.font(500, size, brand.fonts.body);
+        const lh = size * 1.32, ig = size * 0.5, ind = size * 1.15;
+        const ls = items.map((t) => D.wrap(ctx, t, w - ind));
+        const h = ls.reduce((s, l) => s + l.length * lh, 0) + ig * (items.length - 1);
+        res = { size, lh, ig, ind, ls, h };
+        if (h <= maxH || size <= 20 * u) break;
+        size *= 0.93;
+      }
+      return { h: Math.min(res.h, maxH), draw(ctx, x, y) {
+        let yy = y;
+        res.ls.forEach((lines) => {
+          ctx.fillStyle = pal.accent; ctx.fillRect(x, yy + res.lh / 2 - res.size * 0.14, res.size * 0.28, res.size * 0.28);
+          ctx.fillStyle = pal.fg; ctx.font = D.font(500, res.size, brand.fonts.body); ctx.textBaseline = 'middle';
+          lines.forEach((l, i) => ctx.fillText(l, x + res.ind, yy + i * res.lh + res.lh / 2));
+          yy += lines.length * res.lh + res.ig;
+        });
+        ctx.textBaseline = 'alphabetic';
+      } };
+    } };
+  };
+
+  // Son başvuru: solda tarih ve bağlantı, sağda o ayın takvimi (gün kırmızı karede)
+  B.deadline = (env, dateStr, label, link, o = {}) => {
+    const p = D.parseDate(dateStr);
+    if (!p) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap != null ? o.gap : 44, side: true, layout(ctx, w) {
+      const narrow = w < 640 * u;
+      const calW = narrow ? w : Math.min(w * 0.46, 470 * u * Math.min(env.fs, 1.15)), cw = calW / 7, ch = cw * 0.86;
+      const first = (new Date(p.y, p.mo, 1).getDay() + 6) % 7; // Pazartesi = 0
+      const days = new Date(p.y, p.mo + 1, 0).getDate();
+      const rows = Math.ceil((first + days) / 7);
+      const head = narrow ? 230 * u * Math.min(env.fs, 1.15) : 0;
+      const h = narrow ? head + 30 * u + rows * ch : Math.max(30 * u + rows * ch, 250 * u);
+      return { h, draw(ctx, x, y, bw) {
+        const fz = 30 * u * Math.min(env.fs, 1.15);
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = pal.accent; ctx.fillRect(x, y + fz * 0.23, fz * 0.74, fz * 0.74);
+        ctx.fillStyle = pal.fg; ctx.font = D.font(600, fz, brand.fonts.body); ctx.fillText(label || 'Son başvuru', x + fz * 1.29, y + fz * 0.1);
+        const big = 88 * u * Math.min(env.fs, 1.15);
+        const tw = narrow ? bw : bw - calW - 40 * u;
+        D.ls(ctx, -0.04 * big); ctx.font = D.font(600, big, brand.fonts.head); ctx.fillText(`${p.d} ${p.month}`, x - big * 0.03, y + fz * 1.7, tw); D.ls(ctx, 0);
+        if (link) {
+          ctx.fillStyle = pal.sub; ctx.font = D.font(500, 26 * u * Math.min(env.fs, 1.1), brand.fonts.body);
+          const parts = String(link).split(/(?<=\/)/);
+          const lines = []; let cur = '';
+          parts.forEach((pt) => { if (ctx.measureText(cur + pt).width > tw - 20 * u && cur) { lines.push(cur); cur = pt; } else cur += pt; });
+          if (cur) lines.push(cur);
+          lines.slice(0, narrow ? 1 : 3).forEach((l, i) => ctx.fillText(l, x, y + fz * 1.7 + big * 1.15 + i * 34 * u, tw));
+        }
+        // takvim
+        const cx = x + bw - calW, cy = y + head + 30 * u;
+        ctx.fillStyle = pal.grey; ctx.font = D.font(600, 20 * u, brand.fonts.body);
+        ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'].forEach((d, k) => ctx.fillText(d, cx + k * cw + 8 * u, y + head));
+        ctx.strokeStyle = pal.motif; ctx.lineWidth = 1.2 * u;
+        ctx.beginPath();
+        for (let r = 0; r <= rows; r++) { ctx.moveTo(cx, cy + r * ch); ctx.lineTo(cx + calW, cy + r * ch); }
+        for (let c = 0; c <= 7; c++) { ctx.moveTo(cx + c * cw, cy); ctx.lineTo(cx + c * cw, cy + rows * ch); }
+        ctx.stroke();
+        for (let d = 1; d <= days; d++) {
+          const i = first + d - 1, r = Math.floor(i / 7), c = i % 7;
+          if (d === p.d) { ctx.save(); ctx.globalAlpha *= D.prog(env.t, 1.2, 0.5); ctx.fillStyle = pal.accent; ctx.fillRect(cx + c * cw, cy + r * ch, cw, ch); ctx.restore(); }
+          ctx.fillStyle = d === p.d ? pal.accentFg : pal.grey;
+          ctx.font = D.font(d === p.d ? 700 : 500, 21 * u, brand.fonts.body);
+          ctx.fillText(String(d), cx + c * cw + 8 * u, cy + r * ch + 8 * u);
+        }
+        ctx.textBaseline = 'alphabetic';
+      } };
+    } };
+  };
+
+  // Başlıktan üretilen ses dalgası (aynı başlık = aynı dalga)
+  B.wave = (env, text, o = {}) => {
+    if (env.motif !== 'ses') return null;
+    const { u, pal } = env;
+    const txt = String(text || 'ilef').trim() || 'ilef';
+    return { gap: o.gap != null ? o.gap : 40, layout(ctx, w) {
+      const maxA = 42 * u * env.fs;
+      return { h: maxA * 2, draw(ctx, x, y) {
+        const pitch = 14 * u, n = Math.floor(w / pitch), base = y + maxA;
+        ctx.fillStyle = pal.red ? 'rgba(255,255,255,.55)' : pal.motif;
+        for (let i = 0; i < n; i++) {
+          const c1 = txt.charCodeAt(i % txt.length), c2 = txt.charCodeAt((i * 7 + 3) % txt.length);
+          const v = ((c1 * 37 + c2 * 11) % 100) / 100, en = Math.sin(((i + 1) / (n + 1)) * Math.PI);
+          const live = isFinite(env.t) ? 0.55 + 0.45 * Math.sin(env.t * 5 + i * 0.7) : 1;
+          const a = Math.max(3 * u, (0.25 + 0.75 * v) * en * maxA * live);
+          D.rr(ctx, x + i * pitch, base - a, 6 * u, a * 2, 3 * u); ctx.fill();
+        }
+      } };
+    } };
+  };
+
+  // İş birliği logoları (beyaz zeminde doğrudan, kırmızı zeminde beyaz plakada)
+  B.partners = (env, imgs, label, o = {}) => {
+    imgs = (imgs || []).filter(Boolean);
+    if (!imgs.length) return null;
+    const { u, pal, brand } = env;
+    return { gap: o.gap != null ? o.gap : 36, layout(ctx, w) {
+      let h = 64 * u;
+      const lab = label ? 34 * u : 0;
+      const ws = () => imgs.map((im) => Math.min(h * ((im.naturalWidth || im.width) / (im.naturalHeight || im.height)), h * 3));
+      let arr = ws(), tot = arr.reduce((a, b) => a + b, 0) + 36 * u * (imgs.length - 1);
+      if (tot > w) { h *= w / tot; arr = ws(); }
+      return { h: lab + h, draw(ctx, x, y) {
+        if (label) { ctx.fillStyle = pal.grey; ctx.font = D.font(500, 22 * u, brand.fonts.body); ctx.textBaseline = 'top'; ctx.fillText(label, x, y); ctx.textBaseline = 'alphabetic'; }
+        let xx = x;
+        imgs.forEach((im, i) => {
+          if (pal.red) { ctx.fillStyle = '#fff'; ctx.fillRect(xx - 8 * u, y + lab - 8 * u, arr[i] + 16 * u, h + 16 * u); }
+          D.contain(ctx, im, xx, y + lab, arr[i], h);
+          xx += arr[i] + 36 * u;
+        });
+      } };
+    } };
+  };
+
+  // Fotoğraf (dikdörtgen, temiz)
+  function drawPhoto(ctx, env, ph, x, y, w, h) {
+    const p = D.prog(env.t, 0.15, 1.0);
+    const z = isFinite(env.t) && !env.calm ? 1.06 - 0.06 * D.clamp(env.t / 8, 0, 1) : 1;
     ctx.save();
     ctx.globalAlpha *= p;
-    ctx.translate(x + s / 2, y + s / 2 + fl + (1 - p) * 30 * env.u);
-    const sc = 0.85 + 0.15 * p;
-    ctx.scale(s * sc, s * sc);
-    ctx.translate(-0.5, -0.5);
-    it.draw(ctx, illusColors(env), isFinite(t) ? Math.max(0, t - (delay || 0.5)) : 0);
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    if (env.pal.mono) ctx.filter = 'grayscale(1)';
+    D.cover(ctx, ph.img, x, y, w, h, ph.fx, ph.fy, z);
+    ctx.filter = 'none';
     ctx.restore();
   }
-  // Ortalanmış şablonlar için akış içi illüstrasyon bloğu
-  B.art = (env, key, o = {}) => {
-    if (!key || env.photo) return null;
-    return {
-      gap: o.gap,
-      flex: o.flex || 1,
-      layout(ctx, w, maxH) {
-        const s = Math.min(maxH, w * 0.7, (o.max || 460) * env.u * (env.tall ? 1.25 : 1));
-        if (s < 150 * env.u) return none;
-        return { h: s, draw: (ctx, x, y, bw) => drawArt(ctx, env, key, x + (bw - s) / 2, y, s, 0.2) };
-      },
-    };
-  };
-  // Sola yaslı şablonlar: metin üstte, illüstrasyon boş kalan sağ alt alanda.
-  function withArt(ctx, env, box, blocks, key, opts = {}) {
-    const { u, W } = env;
-    if (!key || env.photo) return stack(ctx, env, box, blocks, opts);
-    if (env.wide) {
-      const [a, b] = split(box, 0.62, 60 * u);
-      stack(ctx, env, a, blocks, opts);
-      const s = Math.min(b.w, b.h * 1.05);
-      drawArt(ctx, env, key, b.x + (b.w - s) / 2 + 20 * u, b.y + (b.h - s) / 2, s);
-      return;
+  // Hazır afiş: kırpmadan, gölgeyle
+  function drawPoster(ctx, env, img, x, y, w, h) {
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const s = Math.min(w / iw, h / ih), pw = iw * s, ph = ih * s;
+    const px = x + (w - pw) / 2, py = y + (h - ph) / 2;
+    const p = D.prog(env.t, 0.2, 1.0);
+    ctx.save();
+    ctx.globalAlpha *= p;
+    ctx.translate(0, (1 - p) * 30 * env.u);
+    ctx.shadowColor = 'rgba(0,0,0,.16)'; ctx.shadowBlur = 60 * env.u; ctx.shadowOffsetY = 24 * env.u;
+    ctx.fillStyle = '#fff'; ctx.fillRect(px, py, pw, ph);
+    ctx.shadowColor = 'transparent';
+    ctx.drawImage(img, px, py, pw, ph);
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- kompozisyon
+  // spec: { photo:{img,fx,fy}, poster:img, top:[bloklar], bottom:[bloklar], photoShare, footL, footR, valign }
+  function compose(ctx, env, spec) {
+    Ground.paint(ctx, env);
+    const sigBottom = signature(ctx, env);
+    const { u, W, m } = env;
+    const gapTop = (env.tall ? 120 : env.wide ? 70 : 80) * u;
+    const area = { x: m, y: sigBottom + gapTop, w: W - 2 * m - env.mr, h: 0 };
+    area.h = env.bottom - (spec.footL || spec.footR ? 70 : 20) * u - area.y;
+    const blocks = (spec.top || []).concat([B.spacer()], spec.bottom || []);
+
+    if (env.wide && (spec.photo || spec.poster)) {
+      const colW = area.w * 0.46;
+      const right = { x: area.x + area.w - colW, y: area.y, w: colW, h: area.h };
+      if (spec.photo) drawPhoto(ctx, env, spec.photo, right.x, sigBottom + 40 * u, right.w, env.bottom - sigBottom - 40 * u);
+      else drawPoster(ctx, env, spec.poster, right.x, right.y, right.w, right.h);
+      stack(ctx, env, { x: area.x, y: area.y, w: area.w - colW - 80 * u, h: area.h }, blocks);
+    } else if (spec.photo) {
+      const share = spec.photoShare || (env.tall ? 0.44 : env.square ? 0.42 : 0.5);
+      const ph = Math.round(area.h * share);
+      const py = sigBottom + 50 * u;
+      drawPhoto(ctx, env, spec.photo, area.x, py, area.w, ph);
+      const ty = py + ph + 46 * u;
+      stack(ctx, env, { x: area.x, y: ty, w: area.w, h: area.y + area.h - ty }, blocks);
+    } else if (spec.poster) {
+      const lower = (spec.top || []).concat(spec.bottom || []);
+      const lowerH = stack(ctx, env, { x: area.x, y: 0, w: area.w, h: 1e6 }, lower, { measure: true });
+      const ph = area.h - lowerH - 50 * u;
+      drawPoster(ctx, env, spec.poster, area.x, area.y - 20 * u, area.w, ph);
+      stack(ctx, env, { x: area.x, y: area.y + ph + 30 * u, w: area.w, h: area.h - ph - 30 * u }, lower, { valign: 'bottom' });
+    } else if ((env.wide || env.square) && (spec.bottom || []).some((b) => b && b.side)) {
+      // yatay: metin solda, takvim gibi yan bloklar sağ sütunda
+      const colW = area.w * (env.square ? 0.44 : 0.42);
+      stack(ctx, env, { x: area.x, y: area.y, w: area.w - colW - (env.square ? 50 : 80) * u, h: area.h }, (spec.top || []).concat([B.spacer()], (spec.bottom || []).filter((b) => b && !b.side)));
+      stack(ctx, env, { x: area.x + area.w - colW, y: area.y, w: colW, h: area.h }, (spec.bottom || []).filter((b) => b && b.side), { valign: 'bottom', delay: 0.7 });
+    } else {
+      const pad = env.tall ? 80 * u : env.wide ? 0 : 30 * u;
+      const box = { x: area.x, y: area.y + pad, w: env.wide ? area.w * 0.78 : area.w, h: area.h - pad };
+      if (spec.valign === 'center') stack(ctx, env, { x: box.x, y: area.y, w: box.w, h: area.h }, (spec.top || []).concat(spec.bottom || []), { valign: 'center' });
+      else stack(ctx, env, box, blocks);
     }
-    // Metin asla illüstrasyon için küçültülmez: yer yoksa illüstrasyon küçülür ya da çizilmez.
-    const minArt = W * 0.24, maxArt = W * (env.tall ? 0.62 : 0.5), gap = 24 * u;
-    const need = stack(ctx, env, box, blocks, Object.assign({}, opts, { measure: true }));
-    const bottom = env.bottom - 64 * u;
-    const room = bottom + 30 * u - (box.y + need + gap);
-    if (room < minArt) return stack(ctx, env, box, blocks, opts);
-    const used = stack(ctx, env, box, blocks, Object.assign({}, opts, { valign: 'top' }));
-    const s = Math.min(maxArt, bottom + 30 * u - (box.y + used + gap));
-    drawArt(ctx, env, key, W - s - env.m * 0.35 - env.mr, bottom - s + 30 * u, s);
+    footer(ctx, env, spec.footL, spec.footR);
   }
-  const BG_FIELDS = [
-    { key: 'arkaFoto', label: 'Arka plan fotoğrafı (isteğe bağlı)', type: 'image', hint: 'Fotoğraf eklenince illüstrasyon yerine fotoğraf kullanılır.' },
-    { key: 'arkaStil', label: 'Fotoğraf işleme', type: 'select', options: ['Perde', 'Duoton', 'Yarım'], def: 'Duoton' },
-  ];
-  const ILLUS_FIELD = (def) => ({
-    key: 'illus', label: 'İllüstrasyon', type: 'select',
-    options: ['Otomatik'].concat(Object.keys(window.ILLUS || {}).map((k) => window.ILLUS[k].name), ['Yok']), def: def || 'Otomatik',
-  });
 
-  // Ortak alan tanımları
+  // ---------------------------------------------------------------- yardımcılar
+  const img = (env, src) => (src ? env.getImage(src) : null);
+  const photoOf = (env, d, key) => { const im = img(env, d[key]); return im ? { img: im, fx: d[key + '_fx'], fy: d[key + '_fy'] } : null; };
+  const partnersOf = (env, d) => (Array.isArray(d.ortaklar) ? d.ortaklar.map((s) => img(env, s)) : []);
   const PARTNER_FIELDS = [
-    { key: 'ortakEtiket', label: 'Logo şeridi başlığı', type: 'select', options: ['İş birliğiyle', 'Destekleyenler', 'Katkılarıyla', 'Düzenleyenler', 'Ana sponsor'], def: 'İş birliğiyle' },
     { key: 'ortaklar', label: 'İş birliği / destekçi logoları (en fazla 4)', type: 'logos' },
+    { key: 'ortakEtiket', label: 'Logo şeridi başlığı', type: 'text', def: '', ph: 'İş birliğiyle' },
   ];
-  const partnerImgs = (env, d) => (Array.isArray(d.ortaklar) ? d.ortaklar.map((s) => env.img(s)) : []);
+  const TOP_FIELD = (def) => ({ key: 'ust', label: 'Sağ üst bilgi (birim seçilmezse)', type: 'text', def: def || '' });
 
-  // İki sütunlu yerleşim (yatay formatlar için)
-  function split(box, ratio, gap) {
-    const lw = box.w * ratio - gap / 2;
-    return [
-      { x: box.x, y: box.y, w: lw, h: box.h },
-      { x: box.x + lw + gap, y: box.y, w: box.w - lw - gap, h: box.h },
-    ];
-  }
-
-  // ---------------------------------------------------------------- Şablonlar
+  // ---------------------------------------------------------------- şablonlar
   const T = [];
 
   T.push({
-    id: 'duyuru',
-    name: 'Genel Duyuru',
-    desc: 'Dekanlık, bölüm ve genel bilgilendirmeler',
-    accent: 'gold',
+    id: 'duyuru', name: 'Duyuru', desc: 'Dekanlık, bölüm ve genel duyurular', mesh: 'sicak', motif: 'halka',
     fields: [
-      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Duyuru', 'Önemli Duyuru', 'Bilgilendirme', 'Hatırlatma', 'Son Dakika'], def: 'Duyuru' },
-      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: '2026-2027 Güz Dönemi Ders Kayıtları Başlıyor' },
-      { key: 'metin', label: 'Açıklama', type: 'textarea', rows: 4, def: 'Ders kayıtları 22-26 Eylül tarihleri arasında Öğrenci Bilgi Sistemi üzerinden yapılacaktır. Danışman onaylarının kayıt haftası içinde tamamlanması gerekmektedir.' },
-      { key: 'tarih', label: 'Tarih', type: 'text', def: '22-26 Eylül 2026' },
-      { key: 'birim', label: 'Duyuran birim', type: 'text', def: 'Dekanlık' },
-      { key: 'link', label: 'Bağlantı / ayrıntı', type: 'text', def: '', ph: 'ilef.ankara.edu.tr/duyurular' },
-      { key: 'gorsel', label: 'Görsel (isteğe bağlı)', type: 'image' },
-      ILLUS_FIELD(),
-    ].concat(PARTNER_FIELDS),
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const img = env.img(d.gorsel);
-      const auto = /Son Dakika|Önemli/.test(d.etiket) ? 'megafon' : d.etiket === 'Bilgilendirme' ? 'ampul' : d.etiket === 'Hatırlatma' ? 'takvim' : 'megafon';
-      let area = box;
-      if (img && env.wide) {
-        const [a, b] = split(box, 0.58, 70 * env.u);
-        area = a;
-        stack(ctx, env, b, [B.image(env, img, { aspect: b.w / b.h, fx: d.gorsel_fx, fy: d.gorsel_fy })], { delay: 0.2 });
-      }
-      withArt(ctx, env, area, [
-        img && !env.wide ? B.image(env, img, { aspect: env.tall ? 4 / 3 : 2.4, flex: 1, fx: d.gorsel_fx, fy: d.gorsel_fy }) : null,
-        B.tag(env, d.etiket, { gap: 40 }),
-        B.text(env, d.baslik, { max: env.wide ? 96 : 100, min: 44, weight: 800, lh: 1.08, flex: 2, gap: 34 }),
-        B.rule(env, { gap: 36 }),
-        B.text(env, d.metin, { max: 42, min: 24, weight: 400, body: true, lh: 1.35, color: env.pal.sub, flex: 1.4, gap: 36 }),
-        B.meta(env, [{ icon: 'takvim', text: d.tarih }, { icon: 'kisi', text: d.birim }, { icon: 'web', text: d.link }], { gap: 44 }),
-        B.partners(env, partnerImgs(env, d), d.ortakEtiket),
-      ], img ? null : illusKey(d.illus, auto));
-    },
-  });
-
-  T.push({
-    id: 'ogrenci',
-    name: 'Öğrenci İşleri',
-    desc: 'Kayıt, sınav, başvuru ve son tarih duyuruları',
-    accent: 'teal',
-    fields: [
-      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Öğrenci İşleri', 'Sınav Programı', 'Ders Programı', 'Kayıt', 'Başvuru', 'Dikkat'], def: 'Öğrenci İşleri' },
-      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Yaz Okulu Başvuruları' },
-      { key: 'metin', label: 'Kısa açıklama', type: 'textarea', rows: 3, def: 'Başvurular e-posta ile değil, Öğrenci Bilgi Sistemi üzerinden alınacaktır.' },
-      { key: 'maddeler', label: 'Maddeler (her satıra bir madde)', type: 'textarea', rows: 5, def: 'Başvuru formunu doldurun\nDanışman onayını alın\nHarç dekontunu sisteme yükleyin' },
-      { key: 'sonEtiket', label: 'Vurgu kutusu başlığı', type: 'text', def: 'Son başvuru' },
-      { key: 'sonTarih', label: 'Vurgu kutusu değeri', type: 'text', def: '15 Ekim 2026, 17.00' },
-      { key: 'iletisim', label: 'İletişim', type: 'text', def: 'Öğrenci İşleri · Z-12', ph: 'oidb@... / dahili' },
-      ILLUS_FIELD(),
-    ],
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const left = [
-        B.tag(env, d.etiket || 'Öğrenci İşleri'),
-        B.text(env, d.baslik, { max: 92, min: 44, weight: 800, lh: 1.08, flex: 1.6, gap: 30 }),
-        B.text(env, d.metin, { max: 36, min: 24, weight: 400, body: true, lh: 1.35, color: env.pal.sub, flex: 1, gap: 28 }),
-      ];
-      const right = [
-        B.list(env, d.maddeler, { max: 36, min: 22, flex: 1.6 }),
-        B.callout(env, d.sonEtiket || 'Son tarih', d.sonTarih, { gap: 40 }),
-        B.meta(env, [{ icon: 'bilgi', text: d.iletisim }], { gap: 32, size: 28 }),
-      ];
-      if (env.wide) {
-        const [a, b] = split(box, 0.5, 80 * env.u);
-        stack(ctx, env, a, left);
-        stack(ctx, env, b, right, { delay: 0.7 });
-      } else {
-        const bl = right.filter(Boolean);
-        if (bl.length && left[left.length - 1]) bl[0].gap = 44;
-        withArt(ctx, env, box, left.concat(bl), illusKey(d.illus, /Program/.test(d.etiket) ? 'takvim' : d.etiket === 'Dikkat' ? 'megafon' : 'belge'));
-      }
-    },
-  });
-
-  T.push({
-    id: 'etkinlik',
-    name: 'Etkinlik',
-    desc: 'Söyleşi, panel, atölye, gösterim, konferans',
-    accent: 'red',
-    fields: [
-      { key: 'tur', label: 'Etkinlik türü', type: 'select', options: ['Söyleşi', 'Panel', 'Atölye', 'Konferans', 'Seminer', 'Film Gösterimi', 'Sergi', 'Çalıştay', 'Etkinlik'], def: 'Söyleşi' },
-      { key: 'baslik', label: 'Etkinlik adı', type: 'textarea', rows: 2, def: 'Yapay Zekâ Çağında Gazetecilik' },
-      { key: 'alt', label: 'Alt başlık', type: 'text', def: 'Doğrulama, etik ve yeni haber pratikleri' },
-      { key: 'konusmacilar', label: 'Konuşmacılar (her satıra bir kişi)', type: 'textarea', rows: 3, def: 'Prof. Dr. Ad Soyad\nGazeteci Ad Soyad' },
-      { key: 'tarih', label: 'Tarih', type: 'text', def: '23 Ekim 2026, Perşembe' },
-      { key: 'saat', label: 'Saat', type: 'text', def: '14.00' },
-      { key: 'yer', label: 'Yer', type: 'text', def: 'İLEF Konferans Salonu' },
-      { key: 'kayit', label: 'Not (kayıt, katılım)', type: 'text', def: 'Etkinlik herkese açıktır.' },
-      { key: 'gorsel', label: 'Görsel / afiş fotoğrafı (isteğe bağlı)', type: 'image' },
-      ILLUS_FIELD(),
-    ].concat(PARTNER_FIELDS),
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const img = env.img(d.gorsel);
-      const speakers = String(d.konusmacilar || '').split('\n').map((s) => s.trim()).filter(Boolean).join('\n');
-      const textBlocks = [
-        B.tag(env, d.tur),
-        B.text(env, d.baslik, { max: 92, min: 42, weight: 800, lh: 1.06, flex: 2, gap: 30 }),
-        B.text(env, d.alt, { max: 38, min: 24, weight: 500, body: true, lh: 1.25, color: env.pal.sub, flex: 0.7, gap: 18 }),
-        B.text(env, speakers, { max: 34, min: 22, weight: 700, lh: 1.3, flex: 0.9, gap: 30, color: env.pal.fg }),
-        B.rule(env, { gap: 34 }),
-        B.meta(env, [{ icon: 'takvim', text: d.tarih }, { icon: 'saat', text: d.saat }, { icon: 'yer', text: d.yer }], { gap: 30 }),
-        B.text(env, d.kayit, { max: 26, min: 18, weight: 500, body: true, color: env.pal.sub, flex: 0.3, gap: 22, maxLines: 2 }),
-        B.partners(env, partnerImgs(env, d), d.ortakEtiket),
-      ];
-      if (img && env.wide) {
-        const [a, b] = split(box, 0.56, 70 * env.u);
-        stack(ctx, env, a, textBlocks);
-        stack(ctx, env, b, [B.image(env, img, { aspect: b.w / b.h, fx: d.gorsel_fx, fy: d.gorsel_fy })], { delay: 0.2 });
-      } else {
-        const blocks = img ? [B.image(env, img, { aspect: env.tall ? 4 / 3 : 2.2, flex: env.tall ? 1.4 : 1, fx: d.gorsel_fx, fy: d.gorsel_fy })].concat(textBlocks.map((b, i) => (i === 0 && b ? Object.assign(b, { gap: 40 }) : b))) : textBlocks;
-        const auto = { 'Film Gösterimi': 'klaket', 'Atölye': 'ampul', 'Çalıştay': 'ampul', 'Seminer': 'ampul', 'Sergi': 'kamera', 'Konferans': 'dunya' }[d.tur] || 'mikrofon';
-        withArt(ctx, env, box, blocks, img ? null : illusKey(d.illus, auto));
-      }
-    },
-  });
-
-  T.push({
-    id: 'konuk',
-    name: 'Konuk / Konuşmacı',
-    desc: 'Konuk tanıtımı, söyleşi konuğu, mezun buluşması',
-    accent: 'sky',
-    align: 'center',
-    fields: [
-      { key: 'ust', label: 'Üst başlık', type: 'text', def: 'Konuğumuz' },
-      { key: 'ad', label: 'Ad Soyad', type: 'text', def: 'Ad Soyad' },
-      { key: 'unvan', label: 'Unvan / kurum', type: 'text', def: 'Belgesel Yönetmeni' },
-      { key: 'etkinlik', label: 'Etkinlik', type: 'textarea', rows: 2, def: 'Belgeselde Tanıklık ve Bellek' },
-      { key: 'tarih', label: 'Tarih', type: 'text', def: '30 Ekim 2026' },
-      { key: 'saat', label: 'Saat', type: 'text', def: '13.30' },
-      { key: 'yer', label: 'Yer', type: 'text', def: 'Sinema Salonu' },
-      { key: 'foto', label: 'Fotoğraf', type: 'image' },
-    ].concat(PARTNER_FIELDS),
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const img = env.img(d.foto);
-      const al = env.wide ? 'left' : 'center';
-      const info = [
-        B.tag(env, d.ust, { align: al }),
-        B.text(env, d.ad, { max: 88, min: 44, weight: 800, lh: 1.05, flex: 1.2, gap: 28, align: al, maxLines: 2 }),
-        B.text(env, d.unvan, { max: 36, min: 22, weight: 600, body: true, color: env.pal.accent, flex: 0.5, gap: 14, align: al, maxLines: 2 }),
-        B.rule(env, { gap: 32, align: al }),
-        B.text(env, d.etkinlik, { max: 46, min: 28, weight: 700, lh: 1.15, flex: 1, gap: 32, align: al }),
-        B.meta(env, [{ icon: 'takvim', text: [d.tarih, d.saat].filter(Boolean).join(' · ') }, { icon: 'yer', text: d.yer }], { gap: 28, align: al, size: 30 }),
-        B.partners(env, partnerImgs(env, d), d.ortakEtiket, { align: al, gap: 36 }),
-      ];
-      const pt = B.portrait(env, img, { fx: d.foto_fx, fy: d.foto_fy, flex: env.tall ? 1.5 : 1, maxD: env.tall ? 560 : 420 });
-      if (env.wide) {
-        const [a, b] = split(box, 0.38, 60 * env.u);
-        stack(ctx, env, a, [pt], { delay: 0.2 });
-        stack(ctx, env, b, info);
-      } else {
-        info[0] && (info[0].gap = 46);
-        stack(ctx, env, box, [pt].concat(info), { gap: 26 });
-      }
-    },
-  });
-
-  T.push({
-    id: 'haber',
-    name: 'Haber / Fotoğraflı',
-    desc: 'Fakülteden haberler, etkinlik sonrası paylaşım',
-    accent: 'gold',
-    forceTheme: 'koyu',
-    fields: [
-      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Haber', 'Fakültemizden', 'Etkinlikten', 'Başarı', 'Basında İLEF'], def: 'Fakültemizden' },
-      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 3, def: 'Öğrencilerimiz Ulusal Belgesel Yarışmasında Birincilik Ödülü Aldı' },
-      { key: 'ozet', label: 'Kısa özet', type: 'textarea', rows: 3, def: 'Radyo, Televizyon ve Sinema Bölümü öğrencilerinin hazırladığı belgesel, jüri özel ödülünün de sahibi oldu.' },
-      { key: 'foto', label: 'Fotoğraf', type: 'image' },
-      ILLUS_FIELD(),
-    ].concat(PARTNER_FIELDS),
-    render(ctx, d, env) {
-      const { W, H, u, C } = env;
-      const img = env.img(d.foto);
-      if (img) {
-        ctx.fillStyle = C.deep;
-        ctx.fillRect(0, 0, W, H);
-        const z = isFinite(env.t) ? 1.08 - 0.08 * D.clamp(env.t / 8, 0, 1) : 1; // yavaş yakınlaşma (Ken Burns)
-        D.cover(ctx, img, 0, 0, W, H, d.foto_fx, d.foto_fy, z);
-        const g = env.wide ? ctx.createLinearGradient(0, 0, W, 0) : ctx.createLinearGradient(0, 0, 0, H);
-        g.addColorStop(0, D.hexA(C.deep, 0.85));
-        g.addColorStop(env.wide ? 0.55 : 0.3, D.hexA(C.deep, env.wide ? 0.75 : 0.25));
-        g.addColorStop(env.wide ? 0.85 : 0.55, D.hexA(C.deep, env.wide ? 0.1 : 0.55));
-        g.addColorStop(1, D.hexA(C.deep, env.wide ? 0 : 0.96));
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, W, H);
-        if (env.wide) { // başlık alanı için üst kararma
-          const g2 = ctx.createLinearGradient(0, 0, 0, H * 0.3);
-          g2.addColorStop(0, D.hexA(C.deep, 0.6));
-          g2.addColorStop(1, D.hexA(C.deep, 0));
-          ctx.fillStyle = g2;
-          ctx.fillRect(0, 0, W, H * 0.3);
-        }
-      }
-      const box = frame(ctx, env, { bg: !img, waves: !img });
-      const b = env.wide && img ? { x: box.x, y: box.y, w: box.w * 0.55, h: box.h } : box;
-      const blocks = [
-        B.tag(env, d.etiket),
-        B.text(env, d.baslik, { max: 84, min: 40, weight: 800, lh: 1.08, flex: 1.6, gap: 28 }),
-        B.rule(env, { gap: 30 }),
-        B.text(env, d.ozet, { max: 36, min: 22, weight: 400, body: true, lh: 1.35, color: env.pal.sub, flex: 1, gap: 30 }),
-        B.partners(env, partnerImgs(env, d), d.ortakEtiket, { gap: 34 }),
-      ];
-      if (img) stack(ctx, env, b, blocks, { valign: env.wide ? 'center' : 'bottom' });
-      else withArt(ctx, env, b, blocks, illusKey(d.illus, d.etiket === 'Başarı' ? 'kupa' : 'kamera'));
-      void u;
-    },
-  });
-
-  T.push({
-    id: 'takvim',
-    name: 'Takvim / Sınav Programı',
-    desc: 'Akademik takvim, ara sınav / final / bütünleme programı, başvuru takvimi',
-    accent: 'sky',
-    fields: [
-      { key: 'ust', label: 'Üst başlık', type: 'text', def: '2026-27 Güz Yarıyılı' },
-      { key: 'baslik', label: 'Başlık', type: 'text', def: 'Önemli Tarihler' },
-      { key: 'satirlar', label: 'Satırlar (Tarih | Açıklama)', type: 'textarea', rows: 7, def: '22-26 Eylül | Ders kayıtları\n29 Eylül | Derslerin başlaması\n10-14 Kasım | Ara sınavlar\n2 Ocak | Derslerin sona ermesi\n5-16 Ocak | Final sınavları' },
-      { key: 'not', label: 'Not', type: 'text', def: 'Ayrıntılı takvim: ilef.ankara.edu.tr' },
-      ILLUS_FIELD(),
-    ],
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const head = [
-        B.text(env, d.ust, { max: 30, min: 20, weight: 700, color: env.pal.accent, upper: true, ls: 3, flex: 0.3, maxLines: 1 }),
-        B.text(env, d.baslik, { max: 84, min: 44, weight: 800, lh: 1.05, flex: 1, gap: 14, maxLines: 2 }),
-        B.rule(env, { gap: 30 }),
-      ];
-      const body = [
-        B.table(env, d.satirlar, { flex: 3 }),
-        B.text(env, d.not, { max: 26, min: 18, weight: 500, body: true, color: env.pal.sub, flex: 0.25, gap: 26, maxLines: 2 }),
-      ];
-      if (env.wide) {
-        const [a, b] = split(box, 0.36, 80 * env.u);
-        const key = illusKey(d.illus, 'takvim');
-        const hh = key ? stack(ctx, env, a, head, { measure: true }) : 0;
-        stack(ctx, env, key ? Object.assign({}, a, { h: hh }) : a, head, { valign: key ? 'top' : 'center' });
-        if (key) { const s = Math.min(a.w * 0.8, a.h - hh - 40 * env.u); drawArt(ctx, env, key, a.x, a.y + a.h - s, s); }
-        stack(ctx, env, b, body, { delay: 0.6 });
-      } else {
-        body[0] && (body[0].gap = 40);
-        withArt(ctx, env, box, head.concat(body), illusKey(d.illus, 'takvim'));
-      }
-    },
-  });
-
-  T.push({
-    id: 'soz',
-    name: 'Söz / Alıntı',
-    desc: 'Konuk sözü, anma günleri, ilham veren alıntılar',
-    accent: 'gold',
-    align: 'center',
-    fields: [
-      { key: 'soz', label: 'Söz', type: 'textarea', rows: 4, def: 'İletişim, yalnızca bilgi aktarmak değil; birlikte anlam üretmektir.' },
-      { key: 'kisi', label: 'Kişi', type: 'text', def: 'Ad Soyad' },
-      { key: 'kaynak', label: 'Unvan / kaynak', type: 'text', def: 'Söyleşi konuğumuz' },
-      ILLUS_FIELD('Yok'),
-    ],
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const { u, pal, brand } = env;
-      const qmark = B.custom({
-        layout() {
-          return {
-            h: 120 * u,
-            draw(ctx, x, y, w) {
-              ctx.fillStyle = pal.accent;
-              ctx.font = D.font(700, 300 * u, brand.fonts.serif);
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'alphabetic';
-              ctx.fillText('“', x + w / 2, y + 230 * u);
-              ctx.textAlign = 'left';
-            },
-          };
-        },
-      });
-      const key = illusKey(d.illus, null);
-      stack(ctx, env, box, [
-        key ? B.art(env, key, { flex: 0.8, max: 300 }) : qmark,
-        B.text(env, d.soz, { max: 72, min: 34, weight: 500, serif: true, italic: true, lh: 1.25, flex: 1, gap: 30, align: 'center', wr: env.wide ? 0.8 : 0.95 }),
-        B.rule(env, { gap: 48, align: 'center', w: 80 }),
-        B.text(env, d.kisi, { max: 40, min: 26, weight: 800, flex: 0.2, gap: 32, align: 'center', maxLines: 1, upper: true, ls: 2 }),
-        B.text(env, d.kaynak, { max: 30, min: 20, weight: 500, body: true, color: pal.sub, flex: 0.2, gap: 10, align: 'center', maxLines: 2 }),
-      ]);
-    },
-  });
-
-  T.push({
-    id: 'tebrik',
-    name: 'Tebrik / Başarı',
-    desc: 'Ödül, derece, mezuniyet, başarı kutlamaları',
-    accent: 'gold',
-    align: 'center',
-    fields: [
-      { key: 'ust', label: 'Üst yazı', type: 'text', def: 'Tebrikler' },
-      { key: 'kisiler', label: 'Kişi / ekip (her satıra bir ad)', type: 'textarea', rows: 3, def: 'Ad Soyad\nAd Soyad' },
-      { key: 'metin', label: 'Metin', type: 'textarea', rows: 3, def: 'TRT Geleceğin İletişimcileri Yarışması’nda Haber Fotoğrafı dalında birincilik ödülü kazanan öğrencilerimizi tebrik ediyoruz.' },
+      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Duyuru', 'Önemli duyuru', 'Bilgilendirme', 'Hatırlatma', 'Dikkat'], def: 'Duyuru' },
+      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Güz yarıyılı ara sınav programı yayımlandı' },
+      { key: 'metin', label: 'Kısa açıklama', type: 'textarea', rows: 3, def: 'Ders, salon ve gözetmen bilgileri web sitemizde. Sınav günlerinde öğrenci kimliğinizi yanınızda bulundurun.' },
+      { key: 'tarih', label: 'Tarih (metin)', type: 'text', def: '10–14 Kasım 2026' },
+      { key: 'birim', label: 'Duyuran birim', type: 'text', def: 'Öğrenci İşleri' },
+      { key: 'link', label: 'Ayrıntı / bağlantı', type: 'text', def: 'ilef.ankara.edu.tr' },
       { key: 'foto', label: 'Fotoğraf (isteğe bağlı)', type: 'image' },
-      ILLUS_FIELD(),
-    ].concat(PARTNER_FIELDS.map((f) => (f.key === 'ortakEtiket' ? Object.assign({}, f, { def: 'Ödülü veren' }) : f))),
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const { W, H, u, pal, t } = env;
-      // Konfeti benzeri küçük elmaslar (deterministik)
-      const r = D.rng(7);
-      ctx.save();
-      for (let i = 0; i < 46; i++) {
-        const x = r() * W, y0 = r() * H, s = (6 + r() * 12) * u, rot = r() * Math.PI, sp = 20 + r() * 40;
-        const y = isFinite(t) ? (y0 + t * sp * u) % H : y0;
-        // Metin alanını boş bırak: yalnızca kenar bölgelerine konfeti
-        const inText = x > box.x + box.w * 0.08 && x < box.x + box.w * 0.92 && y > box.y - 20 * u && y < box.y + box.h + 20 * u;
-        if (inText) continue;
-        ctx.globalAlpha = 0.25 + r() * 0.45;
-        ctx.fillStyle = i % 3 ? pal.accent : pal.fg;
-        ctx.translate(x, y);
-        ctx.rotate(rot + (isFinite(t) ? t * 0.6 : 0));
-        ctx.fillRect(-s / 2, -s / 2, s, s);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-      ctx.restore();
-      const img = env.img(d.foto);
-      stack(ctx, env, box, [
-        img ? B.portrait(env, img, { fx: d.foto_fx, fy: d.foto_fy, flex: 1, maxD: env.tall ? 460 : 300 }) : B.art(env, illusKey(d.illus, /mezun/i.test(d.metin + d.ust) ? 'kep' : 'kupa'), { flex: 0.9, max: 340 }),
-        B.text(env, d.ust, { gap: 36, max: 150, min: 70, weight: 700, serif: true, italic: true, color: pal.accent, flex: 0.9, align: 'center', maxLines: 1 }),
-        B.rule(env, { gap: 30, align: 'center', w: 80 }),
-        B.text(env, d.kisiler, { max: 64, min: 30, weight: 800, lh: 1.15, flex: 1.2, gap: 40, align: 'center', upper: true }),
-        B.text(env, d.metin, { max: 36, min: 22, weight: 400, body: true, lh: 1.4, color: pal.sub, flex: 1, gap: 36, align: 'center', wr: env.wide ? 0.75 : 0.92 }),
-        B.partners(env, partnerImgs(env, d), d.ortakEtiket, { align: 'center' }),
-      ]);
-    },
-  });
-
-  T.push({
-    id: 'anma',
-    name: 'Anma / Taziye',
-    desc: 'Vefat, anma ve başsağlığı paylaşımları (sade, tek renk)',
-    accent: 'gold',
-    align: 'center',
-    forceTheme: 'anma',
-    fields: [
-      { key: 'ust', label: 'Üst yazı', type: 'select', options: ['Saygıyla Anıyoruz', 'Kaybettik', 'Vefat ve Başsağlığı', 'Başsağlığı', 'Anma'], def: 'Saygıyla Anıyoruz' },
-      { key: 'ad', label: 'Ad Soyad', type: 'text', def: 'Ad Soyad' },
-      { key: 'yillar', label: 'Yıllar', type: 'text', def: '1940 – 2026' },
-      { key: 'metin', label: 'Metin', type: 'textarea', rows: 3, def: 'Fakültemizin kurucu öğretim üyelerinden hocamızı saygı, sevgi ve özlemle anıyoruz.' },
-      { key: 'foto', label: 'Fotoğraf (siyah-beyaz gösterilir)', type: 'image' },
-      ILLUS_FIELD(),
+      TOP_FIELD('Duyuru'),
     ],
     render(ctx, d, env) {
-      const box = frame(ctx, env, { waves: false });
-      const img = env.img(d.foto);
-      const { pal } = env;
-      const blocks = [
-        img ? B.portrait(env, img, { fx: d.foto_fx, fy: d.foto_fy, flex: 1.2, maxD: env.tall ? 480 : 360 }) : B.art(env, illusKey(d.illus, 'karanfil'), { flex: 0.9, max: 300 }),
-        B.text(env, d.ust, { max: 32, min: 20, weight: 600, upper: true, ls: 4, color: pal.sub, flex: 0.2, align: 'center', maxLines: 1, gap: 50 }),
-        B.text(env, d.ad, { max: 82, min: 40, weight: 500, serif: true, lh: 1.1, flex: 0.8, align: 'center', gap: 22, maxLines: 2 }),
-        B.text(env, d.yillar, { max: 34, min: 22, weight: 500, body: true, color: pal.sub, flex: 0.2, align: 'center', gap: 14, maxLines: 1 }),
-        B.rule(env, { gap: 36, align: 'center', w: 60, color: pal.sub }),
-        B.text(env, d.metin, { max: 34, min: 22, weight: 400, body: true, lh: 1.45, color: pal.fg, flex: 0.8, align: 'center', gap: 36, wr: env.wide ? 0.7 : 0.9 }),
-      ];
-      if (env.wide && blocks[0]) {
-        const [a, b] = split(box, 0.36, 60 * env.u);
-        stack(ctx, env, a, [blocks[0]], { delay: 0.2 });
-        stack(ctx, env, b, blocks.slice(1).map((x) => x && Object.assign(x, { gap: x.gap === 50 ? 0 : x.gap })));
-      } else {
-        stack(ctx, env, box, blocks);
-      }
-    },
-  });
-
-  T.push({
-    id: 'ozelgun',
-    name: 'Özel Gün / Kutlama',
-    desc: 'Bayramlar, anma ve kutlama günleri, hoş geldin mesajları',
-    accent: 'red',
-    align: 'center',
-    fields: [
-      { key: 'gun', label: 'Gün', type: 'text', def: '29 Ekim' },
-      { key: 'baslik', label: 'Mesaj', type: 'textarea', rows: 2, def: 'Cumhuriyet Bayramımız kutlu olsun' },
-      { key: 'metin', label: 'Alt metin (isteğe bağlı)', type: 'textarea', rows: 2, def: 'Cumhuriyetimizin 103. yılı' },
-      { key: 'foto', label: 'Arka plan fotoğrafı (isteğe bağlı)', type: 'image' },
-      ILLUS_FIELD(),
-    ],
-    render(ctx, d, env) {
-      const { W, H, C } = env;
-      const img = env.img(d.foto);
-      if (img) {
-        ctx.fillStyle = C.deep;
-        ctx.fillRect(0, 0, W, H);
-        const z = isFinite(env.t) ? 1.08 - 0.08 * D.clamp(env.t / 8, 0, 1) : 1;
-        D.cover(ctx, img, 0, 0, W, H, d.foto_fx, d.foto_fy, z);
-        ctx.fillStyle = D.hexA(env.pal.light ? C.cream : C.deep, 0.62);
-        ctx.fillRect(0, 0, W, H);
-      }
-      const box = frame(ctx, env, { bg: !img });
-      const key = img ? null : illusKey(d.illus, 'bayrak');
-      stack(ctx, env, box, [
-        key ? B.art(env, key, { flex: 1.1, max: 400, gap: 0 }) : null,
-        B.text(env, d.gun, { gap: 20, max: 150, min: 70, weight: 800, color: env.pal.accent, flex: 0.9, align: 'center', maxLines: 1, upper: true }),
-        B.rule(env, { gap: 26, align: 'center', w: 80 }),
-        B.text(env, d.baslik, { max: 84, min: 40, weight: 700, serif: true, lh: 1.12, flex: 1.4, gap: 40, align: 'center', wr: env.wide ? 0.75 : 0.95 }),
-        B.text(env, d.metin, { max: 36, min: 22, weight: 500, body: true, color: env.pal.sub, flex: 0.5, gap: 30, align: 'center', maxLines: 3 }),
-      ]);
-    },
-  });
-
-  T.push({
-    id: 'yayin',
-    name: 'Yeni Yayın',
-    desc: 'Kitap, İLEF Dergisi yeni sayısı, rapor ve makale duyuruları',
-    accent: 'sky',
-    fields: [
-      { key: 'tur', label: 'Tür', type: 'select', options: ['Yeni Kitap', 'Yeni Sayı', 'Yeni Makale', 'Rapor', 'Yayımlandı'], def: 'Yeni Kitap' },
-      { key: 'baslik', label: 'Yayın adı', type: 'textarea', rows: 2, def: 'Dijital Kültür ve Haberin Geleceği' },
-      { key: 'yazar', label: 'Yazar / editör', type: 'text', def: 'Prof. Dr. Ad Soyad' },
-      { key: 'bilgi', label: 'Yayınevi / künye', type: 'text', def: 'Yayınevi Adı, 2026' },
-      { key: 'metin', label: 'Kısa tanıtım', type: 'textarea', rows: 3, def: 'Öğretim üyemizin yeni kitabı, platformlaşan medya ortamında habercilik pratiklerini tartışıyor.' },
-      { key: 'link', label: 'Bağlantı', type: 'text', def: '' },
-      { key: 'kapak', label: 'Kapak görseli', type: 'image' },
-      ILLUS_FIELD(),
-    ],
-    render(ctx, d, env) {
-      const box = frame(ctx, env);
-      const img = env.img(d.kapak);
-      const { u, pal } = env;
-      const book = img && B.custom({
-        flex: 1.4,
-        layout(ctx, w, maxH) {
-          const h = Math.min(maxH, (w * 0.9) * 1.42, 760 * u);
-          if (h < 220 * u) return none;
-          const bw = h / 1.42;
-          return {
-            h,
-            draw(ctx, x, y, cw) {
-              const x0 = env.wide || env.cols ? x + (cw - bw) / 2 : x + (cw - bw) / 2;
-              ctx.save();
-              ctx.shadowColor = 'rgba(0,0,0,.45)';
-              ctx.shadowBlur = 40 * u;
-              ctx.shadowOffsetY = 18 * u;
-              ctx.fillStyle = '#000';
-              ctx.fillRect(x0, y, bw, h);
-              ctx.restore();
-              D.cover(ctx, img, x0, y, bw, h, d.kapak_fx, d.kapak_fy);
-              ctx.fillStyle = 'rgba(255,255,255,.18)';
-              ctx.fillRect(x0 + 8 * u, y, 3 * u, h); // sırt çizgisi
-            },
-          };
-        },
+      compose(ctx, env, {
+        photo: photoOf(env, d, 'foto'),
+        top: [B.cat(env, d.etiket), B.title(env, d.baslik, { gap: 34 }), B.lead(env, d.metin), B.wave(env, d.baslik)],
+        bottom: [B.facts(env, [{ k: 'Tarih', v: d.tarih }, { k: 'Birim', v: d.birim }, { k: 'Ayrıntı', v: d.link }])],
+        footL: env.brand.web, footR: env.brand.social,
       });
-      const info = [
-        B.tag(env, d.tur),
-        B.text(env, d.baslik, { max: 78, min: 38, weight: 800, lh: 1.08, flex: 1.4, gap: 28 }),
-        B.text(env, d.yazar, { max: 36, min: 22, weight: 700, color: pal.accent, flex: 0.4, gap: 20, maxLines: 2 }),
-        B.text(env, d.bilgi, { max: 28, min: 18, weight: 500, body: true, color: pal.sub, flex: 0.3, gap: 10, maxLines: 2 }),
-        B.rule(env, { gap: 30 }),
-        B.text(env, d.metin, { max: 34, min: 20, weight: 400, body: true, lh: 1.38, color: pal.sub, flex: 1, gap: 30 }),
-        B.meta(env, [{ icon: 'web', text: d.link }], { gap: 26, size: 28 }),
-      ];
-      if (book && !env.tall) {
-        const [a, b] = split(box, env.wide ? 0.36 : 0.44, 56 * u);
-        stack(ctx, env, a, [book], { delay: 0.15 });
-        stack(ctx, env, b, info);
-      } else {
-        if (book) { if (info[0]) info[0].gap = 50; stack(ctx, env, box, [book].concat(info)); }
-        else withArt(ctx, env, box, info, illusKey(d.illus, 'kitap'));
-      }
     },
   });
 
-  // Şablonların varsayılan desenleri (tekdüzeliği kırmak için her tür farklı) ve ortak fotoğraf alanları
-  const PATTERN_OF = { duyuru: 'dalga', ogrenci: 'nokta', etkinlik: 'sinyal', konuk: 'daire', haber: 'cizgi', takvim: 'nokta', soz: 'isik', tebrik: 'isik', anma: 'sade', ozelgun: 'daire', yayin: 'blok' };
-  const OWN_PHOTO = ['haber', 'ozelgun', 'anma'];
-  T.forEach((t) => {
-    t.pattern = PATTERN_OF[t.id] || 'dalga';
-    if (OWN_PHOTO.includes(t.id)) t.noBgPhoto = true;
-    else t.fields = t.fields.concat(BG_FIELDS);
+  T.push({
+    id: 'sontarih', name: 'Son tarih / Başvuru', desc: 'Kayıt, sınav, staj, burs, başvuru — takvimde işaretli son gün', mesh: 'sicak', motif: 'yok',
+    fields: [
+      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Öğrenci İşleri', 'Başvuru', 'Kayıt', 'Sınav', 'Staj', 'Burs', 'Dikkat'], def: 'Öğrenci İşleri' },
+      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Ek sınav başvuruları başladı' },
+      { key: 'metin', label: 'Kısa açıklama', type: 'textarea', rows: 2, def: 'Başvurular dilekçe ile Öğrenci İşleri’ne yapılır.' },
+      { key: 'maddeler', label: 'Maddeler (her satıra bir; isteğe bağlı)', type: 'textarea', rows: 3, def: 'Dilekçe örneğini doldurun\nDanışman onayını alın' },
+      { key: 'sonGun', label: 'Son gün', type: 'date', def: '2026-10-26' },
+      { key: 'sonEtiket', label: 'Takvim başlığı', type: 'text', def: 'Son başvuru' },
+      { key: 'link', label: 'Bağlantı', type: 'text', def: 'ilef.ankara.edu.tr/duyurular' },
+      TOP_FIELD('Öğrenci İşleri'),
+    ],
+    render(ctx, d, env) {
+      compose(ctx, env, {
+        top: [B.cat(env, d.etiket), B.title(env, d.baslik, { gap: 34, max: 110 }), B.lead(env, d.metin), B.list(env, d.maddeler)],
+        bottom: [B.deadline(env, d.sonGun, d.sonEtiket, d.link)],
+        footL: env.brand.web, footR: env.brand.social,
+      });
+    },
   });
 
-  // ---------------------------------------------------------------- Dış arayüz
+  T.push({
+    id: 'rakam', name: 'Rakamla duyuru', desc: 'Burs miktarı, başarı puanı, kontenjan — büyük rakamlar', mesh: 'sicak', motif: 'yok',
+    fields: [
+      { key: 'etiket', label: 'Etiket', type: 'text', def: 'Burs başvuruları açık' },
+      { key: 'sayi1', label: 'Büyük rakam', type: 'text', def: '4.000 TL' },
+      { key: 'sayi1Alt', label: 'Açıklaması', type: 'text', def: 'aylık öğrenim bursu · 2.–4. sınıftan 15 öğrenciye' },
+      { key: 'sayi2', label: 'İkinci rakam (isteğe bağlı)', type: 'text', def: '1.000 TL' },
+      { key: 'sayi2Alt', label: 'Açıklaması', type: 'text', def: 'aylık yemek bursu · 1. sınıftan 10 öğrenciye' },
+      { key: 'sonGun', label: 'Son gün (isteğe bağlı)', type: 'date', def: '2026-10-26' },
+      { key: 'link', label: 'Bağlantı', type: 'text', def: 'ilev.org.tr/burs-basvurusu' },
+      TOP_FIELD(''),
+    ],
+    render(ctx, d, env) {
+      compose(ctx, env, {
+        top: [B.cat(env, d.etiket), B.bignum(env, d.sayi1, d.sayi1Alt, { gap: 30 }), d.sayi2 ? B.rule(env, { gap: 34 }) : null, B.bignum(env, d.sayi2, d.sayi2Alt, { gap: 34, size: 120 })],
+        bottom: [B.deadline(env, d.sonGun, 'Son başvuru', d.link) || B.facts(env, [{ k: 'Ayrıntı', v: d.link }])],
+        footL: env.brand.web, footR: env.brand.social,
+      });
+    },
+  });
+
+  T.push({
+    id: 'etkinlik', name: 'Etkinlik', desc: 'Söyleşi, panel, gösterim, atölye, konferans', mesh: 'sicak',
+    motifOf: (d) => ({ 'Film gösterimi': 'film', 'Belgesel gösterimi': 'film', 'Söyleşi': 'ses', 'Panel': 'ses', 'Konferans': 'ses', 'Seminer': 'ses', 'Atölye': 'ag', 'Çalıştay': 'ag', 'Sergi': 'film' }[d.tur] || 'halka'),
+    fields: [
+      { key: 'tur', label: 'Etkinlik türü', type: 'select', options: ['Söyleşi', 'Panel', 'Konferans', 'Seminer', 'Atölye', 'Çalıştay', 'Film gösterimi', 'Belgesel gösterimi', 'Sergi', 'Etkinlik'], def: 'Söyleşi' },
+      { key: 'baslik', label: 'Etkinlik adı', type: 'textarea', rows: 2, def: 'Yapay zekâ çağında gazetecilik' },
+      { key: 'alt', label: 'Kısa açıklama', type: 'textarea', rows: 2, def: 'Doğrulama, etik ve yeni haber pratikleri üzerine.' },
+      { key: 'konusmacilar', label: 'Konuşmacılar (her satıra bir)', type: 'textarea', rows: 2, def: 'Prof. Dr. Ad Soyad\nGazeteci Ad Soyad' },
+      { key: 'tarih', label: 'Tarih', type: 'date', def: '2026-10-23' },
+      { key: 'saat', label: 'Saat', type: 'text', def: '14.00' },
+      { key: 'yer', label: 'Yer', type: 'text', def: 'ATK Dersliği' },
+      { key: 'foto', label: 'Fotoğraf (isteğe bağlı)', type: 'image' },
+      TOP_FIELD(''),
+    ].concat(PARTNER_FIELDS),
+    render(ctx, d, env) {
+      const ph = photoOf(env, d, 'foto');
+      const speakers = String(d.konusmacilar || '').split('\n').map((s) => s.trim()).filter(Boolean).join(' · ');
+      const top = [B.cat(env, d.tur), B.title(env, d.baslik, { gap: 34 }), B.lead(env, d.alt), B.lead(env, speakers, { weight: 600, color: env.pal.fg, gap: 18, flex: 0.6 }), B.wave(env, d.baslik)];
+      const when = D.parseDate(d.tarih) ? D.fmtDate(d.tarih, true) : d.tarih;
+      const bottom = ph || env.wide
+        ? [B.partners(env, partnersOf(env, d), d.ortakEtiket), B.facts(env, [{ k: 'Tarih', v: when }, { k: 'Saat', v: d.saat }, { k: 'Yer', v: d.yer }])]
+        : [B.partners(env, partnersOf(env, d), d.ortakEtiket), B.dateSq(env, d.tarih, [d.saat, d.yer])];
+      compose(ctx, env, { photo: ph, top, bottom, footL: env.brand.web, footR: 'Herkese açıktır' });
+    },
+  });
+
+  T.push({
+    id: 'haber', name: 'Haber', desc: 'Fakülteden haberler, etkinlik sonrası fotoğraflı paylaşım', mesh: 'sicak', motif: 'gazete',
+    fields: [
+      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Fakültemizden', 'Haber', 'Etkinlikten', 'Proje haberi', 'Basında İLEF'], def: 'Fakültemizden' },
+      { key: 'foto', label: 'Fotoğraf', type: 'image' },
+      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Sonic Resilience Ankara buluşması tamamlandı' },
+      { key: 'ozet', label: 'Kısa özet', type: 'textarea', rows: 2, def: 'Dezenformasyona karşı atölye ATK Sanat Evi’nde, panel 100. Yıl Konferans Salonu’nda yapıldı.' },
+      TOP_FIELD('Haber'),
+    ].concat(PARTNER_FIELDS),
+    render(ctx, d, env) {
+      compose(ctx, env, {
+        photo: photoOf(env, d, 'foto'),
+        top: [B.cat(env, d.etiket), B.title(env, d.baslik, { gap: 30, max: 104 }), B.lead(env, d.ozet)],
+        bottom: [B.partners(env, partnersOf(env, d), d.ortakEtiket)],
+        footL: env.brand.web, footR: env.brand.social,
+      });
+    },
+  });
+
+  T.push({
+    id: 'kisi', name: 'Atama / Tebrik', desc: 'Yeni görev, atama, tebrik, hoş geldiniz', mesh: 'kurumsal', motif: 'yok',
+    fields: [
+      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Dekan yardımcımız', 'Yeni görev', 'Atama', 'Tebrikler', 'Hoş geldiniz', 'Emekliliğe uğurlarken'], def: 'Dekan yardımcımız' },
+      { key: 'foto', label: 'Fotoğraf', type: 'image' },
+      { key: 'ad', label: 'Ad Soyad', type: 'text', def: 'Ad Soyad' },
+      { key: 'unvan', label: 'Unvan / birim', type: 'text', def: 'Dr. Öğr. Üyesi · Gazetecilik Bölümü' },
+      { key: 'mesaj', label: 'Mesaj', type: 'textarea', rows: 2, def: 'Yeni görevinde başarılar dileriz.' },
+      TOP_FIELD('Dekanlık'),
+    ],
+    render(ctx, d, env) {
+      const line = [d.unvan, d.mesaj].filter(Boolean).map((s) => String(s).trim().replace(/\.$/, '')).join('. ') + '.';
+      compose(ctx, env, {
+        photo: photoOf(env, d, 'foto'), photoShare: env.tall ? 0.5 : 0.56,
+        top: [B.cat(env, d.etiket), B.title(env, d.ad, { gap: 22, max: 110, maxLines: 2 }), B.lead(env, line === '.' ? '' : line, { gap: 20 })],
+        bottom: [],
+      });
+    },
+  });
+
+  T.push({
+    id: 'odul', name: 'Ödül / Başarı', desc: 'Büyük haber — kırmızı zemin, seyrek kullanın', mesh: 'sicak', motif: 'isik', ground: 'kirmizi',
+    fields: [
+      { key: 'etiket', label: 'Etiket', type: 'text', def: 'Jüri Özel Ödülü' },
+      { key: 'foto', label: 'Fotoğraf', type: 'image' },
+      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Belgeselimize Gordion’dan ödül' },
+      { key: 'ozet', label: 'Kısa açıklama', type: 'textarea', rows: 2, def: 'Sevinç Aydoğan’ın “Kintsugi Sanatı”, III. Gordion Uluslararası Arkeofilm Festivali’nde.' },
+      TOP_FIELD(''),
+    ],
+    render(ctx, d, env) {
+      compose(ctx, env, {
+        photo: photoOf(env, d, 'foto'), photoShare: 0.44,
+        top: [B.cat(env, d.etiket), B.title(env, d.baslik, { gap: 30, max: 112 }), B.lead(env, d.ozet)],
+        bottom: [], footL: env.brand.web, footR: env.brand.social,
+      });
+    },
+  });
+
+  T.push({
+    id: 'vefat', name: 'Vefat / Anma', desc: 'Vefat, başsağlığı ve anma — sade, renksiz, hareketsiz', mesh: 'gri', motif: 'yok', mono: true, calm: true,
+    fields: [
+      { key: 'etiket', label: 'Üst yazı', type: 'select', options: ['Vefat ve başsağlığı', 'Başsağlığı', 'Saygıyla anıyoruz', 'Anma'], def: 'Vefat ve başsağlığı' },
+      { key: 'foto', label: 'Fotoğraf (siyah-beyaz gösterilir)', type: 'image' },
+      { key: 'ad', label: 'Ad Soyad', type: 'text', def: 'Ad Soyad' },
+      { key: 'yillar', label: 'Yıllar', type: 'text', def: '1946 – 2026' },
+      { key: 'metin', label: 'Metin', type: 'textarea', rows: 3, def: 'Fakültemizin emekli öğretim üyelerinden hocamızı kaybetmenin derin üzüntüsü içindeyiz. Ailesine ve sevenlerine başsağlığı dileriz.' },
+      TOP_FIELD('Dekanlık'),
+    ],
+    render(ctx, d, env) {
+      compose(ctx, env, {
+        photo: photoOf(env, d, 'foto'), photoShare: env.tall ? 0.4 : 0.44,
+        top: [B.cat(env, d.etiket), B.title(env, d.ad, { gap: 26, max: 104, weight: 500, maxLines: 2, flex: 0 }), B.lead(env, d.yillar, { gap: 10, color: env.pal.grey, flex: 0, maxLines: 1 }), B.lead(env, d.metin, { gap: 34, flex: 0 })],
+        bottom: [], footL: 'Ankara Üniversitesi İletişim Fakültesi', valign: 'center',
+      });
+    },
+  });
+
+  T.push({
+    id: 'ozelgun', name: 'Özel gün / Kutlama', desc: 'Bayramlar, anma ve kutlama günleri', mesh: 'sicak', motif: 'halka',
+    fields: [
+      { key: 'tarih', label: 'Gün', type: 'date', def: '2026-10-29' },
+      { key: 'baslik', label: 'Mesaj', type: 'textarea', rows: 2, def: 'Cumhuriyet Bayramımız kutlu olsun' },
+      { key: 'metin', label: 'Alt metin (isteğe bağlı)', type: 'textarea', rows: 2, def: 'Cumhuriyetimizin 103. yılında' },
+      { key: 'foto', label: 'Fotoğraf (isteğe bağlı)', type: 'image' },
+      TOP_FIELD(''),
+    ],
+    render(ctx, d, env) {
+      const p = D.parseDate(d.tarih);
+      compose(ctx, env, {
+        photo: photoOf(env, d, 'foto'),
+        top: [p ? B.dateSq(env, d.tarih, [], { gap: 0, size: 220 }) : null, B.title(env, d.baslik, { gap: 50, max: 130, flex: 0, maxLines: 4 }), B.lead(env, d.metin, { flex: 0 })],
+        bottom: [], footL: env.brand.web, footR: env.brand.social, valign: 'center',
+      });
+    },
+  });
+
+  T.push({
+    id: 'afis', name: 'Hazır afiş', desc: 'Dışarıdan gelen afiş ya da banner — kırpmadan İLEF çerçevesiyle', mesh: 'sicak', motif: 'yok',
+    fields: [
+      { key: 'afis', label: 'Afiş / banner görseli', type: 'image', hint: 'Görsel kırpılmadan yerleştirilir.' },
+      { key: 'etiket', label: 'Etiket', type: 'text', def: 'Etkinlik' },
+      { key: 'baslik', label: 'Kısa başlık (isteğe bağlı)', type: 'text', def: '' },
+      { key: 'tarih', label: 'Tarih', type: 'date', def: '2026-10-19' },
+      { key: 'saat', label: 'Saat', type: 'text', def: '10.30' },
+      { key: 'yer', label: 'Yer', type: 'text', def: 'ATK Sanat Evi' },
+      TOP_FIELD('Etkinlik'),
+    ],
+    render(ctx, d, env) {
+      const poster = img(env, d.afis);
+      const when = D.parseDate(d.tarih) ? D.fmtDate(d.tarih, false) : d.tarih;
+      const top = d.baslik ? [B.cat(env, d.etiket), B.title(env, d.baslik, { max: 64, min: 36, maxLines: 2, gap: 16, flex: 0 })] : [];
+      const bottom = [B.facts(env, [{ k: 'Tarih', v: when }, { k: 'Saat', v: d.saat }, { k: 'Yer', v: d.yer }], { gap: 24 })];
+      if (poster) compose(ctx, env, { poster, top, bottom, footL: env.brand.web, footR: env.brand.social });
+      else compose(ctx, env, { top: [B.cat(env, 'Hazır afiş'), B.lead(env, 'Soldaki panelden afiş ya da banner görselini yükleyin. Görsel kırpılmadan bu çerçeveye yerleşir.')], bottom, footL: env.brand.web });
+    },
+  });
+
+  T.push({
+    id: 'karusel', name: 'Karusel', desc: 'Foto haber — kapak + fotoğraf sayfaları', mesh: 'sicak', motif: 'gazete',
+    slides: (d) => 1 + (Array.isArray(d.fotolar) ? d.fotolar.length : 0),
+    fields: [
+      { key: 'etiket', label: 'Etiket', type: 'text', def: 'Fakültemizden' },
+      { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Sonic Resilience Ankara buluşması tamamlandı' },
+      { key: 'ozet', label: 'Kısa özet', type: 'textarea', rows: 2, def: 'Atölye ve panelden kareler.' },
+      { key: 'kapak', label: 'Kapak fotoğrafı', type: 'image' },
+      { key: 'fotolar', label: 'Fotoğraf sayfaları (en fazla 9)', type: 'images' },
+      { key: 'aciklamalar', label: 'Sayfa açıklamaları (her satıra bir)', type: 'textarea', rows: 3, def: 'Atölye · 24 Eylül · ATK Sanat Evi\nPanel · 25 Eylül · 100. Yıl Konferans Salonu' },
+      TOP_FIELD('Haber'),
+    ],
+    render(ctx, d, env) {
+      const n = 1 + (Array.isArray(d.fotolar) ? d.fotolar.length : 0);
+      const s = Math.min(env.slide || 0, n - 1);
+      if (s === 0) {
+        compose(ctx, env, {
+          photo: photoOf(env, d, 'kapak'),
+          top: [B.cat(env, d.etiket), B.title(env, d.baslik, { gap: 30, max: 104 }), B.lead(env, d.ozet)],
+          bottom: [], footL: env.brand.web, footR: n > 1 ? `1 / ${n}  →` : env.brand.social,
+        });
+        return;
+      }
+      // iç sayfa: fotoğraf + ince alt bant
+      const { W, H, u, m } = env;
+      Ground.paint(ctx, Object.assign({}, env, { motif: 'yok' }));
+      const im = img(env, d.fotolar[s - 1]);
+      const st = (env.fmt.safeTop || 0) * u, sb = (env.fmt.safeBottom || 0) * u;
+      const bar = 150 * u + sb;
+      if (im) drawPhoto(ctx, env, { img: im, fx: 0.5, fy: 0.5 }, 0, st, W, H - bar - st);
+      const cap = String(d.aciklamalar || '').split('\n')[s - 1] || d.etiket;
+      const y = H - bar + 46 * u;
+      stack(ctx, env, { x: m, y, w: W - 2 * m - env.mr - 220 * u, h: 60 * u }, [B.cat(env, cap)], { delay: 0.2 });
+      const ilef = env.brand.logos.find((l) => l.id === 'ilef');
+      const lw = ilef ? drawLogo(ctx, env, ilef, W - m - env.mr, y - 8 * u, 46 * u, true) : 0;
+      ctx.fillStyle = env.pal.grey; ctx.font = D.font(500, 26 * u, env.brand.fonts.body); ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      ctx.fillText(`${s + 1} / ${n}`, W - m - env.mr - lw - 20 * u, y + 4 * u);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    },
+  });
+
+  // ---------------------------------------------------------------- dış arayüz
   window.Studio = {
     templates: T,
     palette,
-    render(ctx, opts) {
-      const { tpl, data, theme, fmt, brand, t, unit, getImage } = opts;
-      const W = fmt.w, H = fmt.h;
-      const u = Math.min(W, H) / 1080;
-      const th = tpl.forceTheme || theme;
-      const pal = palette(th, opts.accent || tpl.accent, brand.colors);
+    // Otomatik motif: şablon türüne özgü motif > seçili birimin motifi > şablon varsayılanı
+    autoMotif(tpl, data, unit) {
+      const own = tpl.motifOf ? tpl.motifOf(data) : null;
+      if (own && own !== 'halka') return own;
+      if (unit && unit.motif) return unit.motif;
+      return own || tpl.motif || 'yok';
+    },
+    render(ctx, o) {
+      const { tpl, data, fmt, brand, t, unit, getImage } = o;
+      const W = fmt.w, H = fmt.h, u = Math.min(W, H) / 1080;
+      const ground = tpl.mono ? 'beyaz' : o.ground && o.ground !== 'oto' ? o.ground : tpl.ground || 'beyaz';
+      const pal = palette(ground, brand.colors, tpl.mono);
+      const motif = tpl.mono ? 'yok' : o.motif && o.motif !== 'oto' ? o.motif : this.autoMotif(tpl, data, unit);
+      const mesh = tpl.mono ? 'gri' : o.mesh && o.mesh !== 'oto' ? o.mesh : tpl.mesh || 'sicak';
+      const tt = t == null ? Infinity : t;
       const env = {
-        W, H, u, t: t == null ? Infinity : t, pal, brand, C: brand.colors, fmt,
-        m: (W > H ? 90 : 72) * u,
-        top: (fmt.safeTop || 64) * u,
-        mr: (fmt.safeRight || 0) * u,
-        bottom: H - (fmt.safeBottom || 40) * u,
-        wide: W / H > 1.3,
-        tall: H / W > 1.5,
-        fs: H / W > 1.5 ? 1.3 : H / W > 1.3 ? 1.08 : H / W < 1.05 && W / H < 1.3 ? 0.94 : 1,
-        unit: unit || null,
-        th, accentKey: opts.accent || tpl.accent,
-        pattern: opts.pattern || tpl.pattern || 'dalga',
-        photo: null,
-        img: (src) => (src ? getImage(src) : null),
-        logoImg: (logo, light) => {
-          const src = (light ? logo.light || logo.dark : logo.dark || logo.light) || null;
-          return src ? getImage(src) : null;
-        },
+        W, H, u, t: tpl.calm && isFinite(tt) ? Math.min(tt, 3) : tt, fmt, brand, pal, motif, mesh,
+        calm: !!tpl.calm, badge: !!o.badge, unit: unit || null, topRight: data.ust || '', slide: o.slide || 0,
+        tall: H / W > 1.5, wide: W / H > 1.3, square: Math.abs(W - H) < 10,
+        fs: H / W > 1.5 ? 1.16 : W / H > 1.3 ? 0.92 : Math.abs(W - H) < 10 ? 0.9 : 1,
+        m: (W > H ? 96 : 88) * u, mr: (fmt.safeRight || 0) * u,
+        top: (fmt.safeTop || 80) * u, bottom: H - (fmt.safeBottom || 72) * u,
+        getImage,
       };
-      if (!tpl.noBgPhoto && data.arkaFoto) {
-        const im = getImage(data.arkaFoto);
-        if (im) env.photo = { img: im, fx: data.arkaFoto_fx, fy: data.arkaFoto_fy, style: { Perde: 'perde', Duoton: 'duoton', 'Yarım': 'yarim' }[data.arkaStil] || 'duoton' };
-      }
       ctx.save();
       ctx.clearRect(0, 0, W, H);
       tpl.render(ctx, data, env);

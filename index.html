@@ -6,7 +6,7 @@
   <title>İLEF Görsel Stüdyo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,600&family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;0,700;1,500;1,700&family=Bricolage+Grotesque:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=Newsreader:ital,wght@0,500;0,700;1,500;1,700&family=Montserrat:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500;1,700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -15,12 +15,13 @@
       <img src="assets/logos/ilef.svg" alt="" />
       <div>
         <strong>Görsel Stüdyo</strong>
-        <span>Ankara Üniversitesi İletişim Fakültesi · sosyal medya şablonları</span>
+        <span>Ankara Üniversitesi İletişim Fakültesi · sosyal medya</span>
       </div>
     </div>
     <div class="top-actions">
       <button type="button" class="ghost" id="btnSave" title="Bu tasarımı .json olarak kaydet">Taslağı kaydet</button>
       <label class="ghost btnlike" title="Kaydedilmiş bir .json taslağını aç">Taslak aç<input type="file" id="fileDraft" accept=".json,application/json" hidden /></label>
+      <a class="ghost btnlike" href="kimlik.html" target="_blank" rel="noopener">Kimlik kılavuzu</a>
       <button type="button" class="ghost" id="btnBrand">Marka &amp; logolar</button>
     </div>
   </header>
@@ -36,17 +37,17 @@
         <div id="fmtSeg" class="chips"></div>
       </section>
       <section>
-        <h2><span>3</span> Görünüm</h2>
-        <div id="themeSeg" class="chips"></div>
-        <div class="row3">
-          <label>Vurgu rengi<select id="accentSel"></select></label>
-          <label>Arka plan deseni<select id="patternSel"></select></label>
-          <button type="button" id="btnShuffle" title="Tema, renk ve deseni rastgele değiştir">🎲 Karıştır</button>
-        </div>
+        <h2><span>3</span> Bölüm / atölye</h2>
+        <select id="unitSel"></select>
       </section>
       <section>
-        <h2><span>4</span> Bölüm / atölye</h2>
-        <select id="unitSel"></select>
+        <h2><span>4</span> Görünüm</h2>
+        <div id="groundSeg" class="chips"></div>
+        <div class="row3">
+          <label>Renk tonu (mesh)<select id="meshSel"></select></label>
+          <label>Konu motifi<select id="motifSel"></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="chkBadge" /> 80. yıl rozetini göster</label>
       </section>
       <section>
         <h2><span>5</span> İçerik</h2>
@@ -59,6 +60,7 @@
       <div class="stage-canvas" id="stageBox">
         <canvas id="cv" width="1080" height="1350"></canvas>
       </div>
+      <div class="slidebar" id="slideBar" hidden></div>
       <div class="actions">
         <button type="button" class="primary" id="btnPng">PNG indir</button>
         <button type="button" id="btnAll">Tüm formatlar (PNG)</button>
@@ -115,18 +117,14 @@
           <label>Sosyal medya hesabı<input id="bSoc" placeholder="@kullaniciadi" /></label>
         </div>
         <h3>Logo kütüphanesi</h3>
-        <p class="note"><b>Ana</b> logolar her görselin sol üstünde yer alır. <b>Bölüm</b> ve <b>atölye</b> logoları görsel bazında seçilir, sağ üstte görünür.
+        <p class="note"><b>Ana imza</b> (Ankara Üniversitesi + ilef) her görselin sol üstünde yer alır. <b>Dönem rozeti</b> isteğe bağlı gösterilir. <b>Bölüm</b> ve <b>atölye</b> logoları görsel bazında seçilir, sağ üstte görünür.
           SVG ya da şeffaf PNG yükleyin. Illustrator dosyaları için: <i>Dosya → Dışa Aktar → SVG</i>.</p>
         <div id="logoList" class="logo-list"></div>
         <div class="logo-add">
           <input id="newLogoName" placeholder="Yeni birim adı (ör. Fotoğraf Atölyesi)" />
-          <select id="newLogoGroup"><option value="atolye">Atölye / birim</option><option value="bolum">Bölüm</option><option value="ana">Ana logo</option></select>
+          <select id="newLogoGroup"><option value="atolye">Atölye / birim</option><option value="bolum">Bölüm</option></select>
           <button type="button" id="btnAddLogo">Ekle</button>
         </div>
-        <h3>Yazı tipleri</h3>
-        <p class="note">Tüm görsellerde ortak kullanılır. Hepsi Türkçe karakterleri tam destekler.</p>
-        <select id="fontSel" class="fullsel"></select>
-        <div id="fontPreview" class="font-preview"></div>
         <h3>Renkler</h3>
         <div id="colorList" class="color-list"></div>
       </div>
@@ -143,7 +141,7 @@
   <script src="js/logos.js"></script>
   <script src="js/brand.js"></script>
   <script src="js/draw.js"></script>
-  <script src="js/illus.js"></script>
+  <script src="js/bg.js"></script>
   <script src="js/templates.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -1,107 +1,98 @@
 # İLEF Görsel Stüdyo
 
-Ankara Üniversitesi İletişim Fakültesi için **kurumsal kimliğe uygun sosyal medya görseli ve kısa video üreticisi**.
-Duyuru, öğrenci işleri, etkinlik, haber, anma… her içerik türü aynı görsel dili konuşur; kim hazırlarsa hazırlasın sonuç tutarlı olur.
+Ankara Üniversitesi İletişim Fakültesi için **sosyal medya görseli ve kısa video üreticisi**.
+Kim hazırlarsa hazırlasın duyuru, etkinlik, haber, vefat ve dışarıdan gelen afişler aynı görsel dille paylaşılır.
 
-Kurulum gerektirmez: `index.html` dosyasını Chrome ya da Edge ile açmak yeterlidir. İnternet bağlantısı yalnızca yazı tipleri (Google Fonts) için kullanılır.
+Kurulum gerektirmez: `index.html` dosyasını Chrome ya da Edge ile açın. İnternet yalnızca yazı tipi (Google Fonts) için kullanılır.
+Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada “Kimlik kılavuzu”).
 
-## Neler yapılabilir?
+## Görsel dil
 
-| | |
+- **Beyaz ve tonları.** Arkada, beyaz tülün ardından köşelerde görünen yumuşak renk lekeleri (mesh) ve dağınık nokta dokusu.
+- **Tek marka öğesi: kırmızı kare.** ilef logosundan gelir; tür işareti, tarih kutusu ve takvimde son gün olarak kullanılır. Başlıklar siyahtır.
+- **Tek yazı ailesi: Instrument Sans** (400–700). Başlıklarda sıkı harf aralığı.
+- **Konu motifleri** — rastgele değil, gönderinin konusunu anlatır: film şeridi, başlıktan üretilen ses dalgası, gazete ızgarası, takvim, bağlantı ağı, piksel ızgara, yayın halkaları, ışık huzmeleri. Bölüm seçilince o bölümün motifi otomatik gelir (Gazetecilik → gazete, RTS → film, HİT/Reklam → ağ, YMİ → piksel, Radyo İlef → ses).
+- **Kırmızı zemin** yalnızca büyük haber için (akışta 9 gönderide en fazla 1).
+
+## İçerik türleri
+
+| Tür | Ne için |
 |---|---|
-| **11 şablon** | Genel Duyuru · Öğrenci İşleri (sınav/ders programı, kayıt, başvuru) · Etkinlik · Konuk/Konuşmacı · Haber/Fotoğraflı · Takvim/Sınav Programı · Söz/Alıntı · Tebrik/Başarı · Anma/Taziye · Özel Gün/Kutlama · Yeni Yayın |
-| **6 format** | Gönderi 4:5 (1080×1350) · Gönderi 3:4 (1080×1440) · Kare · Story 9:16 · Reels 9:16 · Yatay 16:9 |
-| **Görünüm** | 5 tema (Lacivert, Açık, Vurgu rengi, İLEF kırmızısı, Gece) · 7 vurgu rengi · 8 arka plan deseni · 🎲 Karıştır |
-| **Görsel öğeler** | 16 vektör illüstrasyon (megafon, mikrofon, klaket, kupa, kitap, takvim, bayrak, karanfil…) · arka plan fotoğrafı (Perde / Duoton / Yarım) · konuk portresi · iş birliği / destekçi logoları |
-| **Logolar** | Ana logo (ilef) her görselde; bölüm ve atölye logoları görsel bazında seçilir |
-| **Çıktı** | PNG (tek format ya da tüm formatlar) · MP4 (H.264) video, 6–30 sn, giriş animasyonlu |
-| **Paylaşım yardımcısı** | Otomatik açıklama metni, alternatif metin (erişilebilirlik) ve 3–5 CamelCase etiket taslağı |
-| **Kontroller** | Görseldeki kelime sayısı, WCAG kontrast oranı, Story/Reels güvenli alan katmanı, fotoğraf önerisi |
+| Duyuru | Dekanlık, bölüm ve genel duyurular |
+| Son tarih / Başvuru | Kayıt, sınav, staj, burs — o ayın takviminde son gün işaretli |
+| Rakamla duyuru | Burs miktarı, başarı puanı, kontenjan |
+| Etkinlik | Söyleşi, panel, gösterim, atölye — tarih kırmızı karede; türüne göre motif |
+| Haber | Fotoğraflı haber, etkinlik sonrası paylaşım |
+| Atama / Tebrik | Yeni görev, atama, tebrik, hoş geldiniz (kurumsal lacivert-altın ton) |
+| Ödül / Başarı | Büyük haber — kırmızı zemin, ışık huzmeleri |
+| Vefat / Anma | Renksiz, motifsiz, hareketsiz; fotoğraf siyah-beyaz |
+| Özel gün / Kutlama | Bayramlar, anma ve kutlama günleri |
+| Hazır afiş | Dışarıdan gelen afiş/banner kırpılmadan İLEF çerçevesine girer, tarih-saat-yer altta tekrarlanır |
+| Karusel | Kapak + en fazla 9 fotoğraf sayfası; tüm sayfalar tek tıkla indirilir |
 
-Şablon seçimi, içerik türleri ve kontroller fakültenin web sitesindeki duyuru/haber kategorilerine ve sosyal medya araştırmalarına dayanır (aşağıda).
+**Formatlar:** Gönderi 4:5 · Kare · Story 9:16 · Reels 9:16 · Yatay 16:9. Story/Reels güvenli alanları (üst %14, alt %20/%35, Reels sağ butonlar) korunur.
 
 ## Kullanım
 
-1. **Şablon** seçin, **format** ve **görünümü** belirleyin.
-2. Gerekirse **bölüm / atölye** seçin — logosu sağ üstte görünür.
-3. **İçerik** alanlarını doldurun. Fotoğraf eklerseniz şablon otomatik olarak fotoğraflı düzene geçer.
-4. **PNG indir** ya da **Video kaydet**. Video kaydı gerçek zamanlıdır; kayıt sırasında sekmeyi değiştirmeyin.
-5. **Paylaşım metni** bölümündeki açıklama, alternatif metin ve etiketleri kopyalayıp düzenleyin.
+1. **Şablonu** ve **formatı** seçin; gerekirse **bölüm/atölye** seçin (logosu ve adı sağ üstte görünür, motifi otomatik gelir).
+2. **Görünüm:** zemin (beyaz/kırmızı), mesh tonu, konu motifi — hepsi “Otomatik” bırakılabilir. 2026 boyunca **80. yıl rozeti** açılabilir.
+3. **İçeriği** doldurun. Tarih alanları takvimden seçilir; Türkçe gün/ay adları otomatik yazılır.
+4. **PNG indir**, **Tüm formatlar** (karuselde: tüm sayfalar) ya da **Video kaydet** (6–30 sn). Video kaydı gerçek zamanlıdır; sekmeyi değiştirmeyin.
+5. **Paylaşım metni:** açıklama, alternatif metin ve 3–5 etiket taslağını kopyalayıp düzenleyin.
 
-Çalışmalar tarayıcıda otomatik saklanır. **Taslağı kaydet / Taslak aç** ile `.json` olarak paylaşılabilir.
-
-## Kurumsal tutarlılık
-
-- **Marka & logolar** penceresinde üniversite/fakülte adı, web adresi, sosyal medya hesabı, renkler, yazı tipi seti ve logo kütüphanesi yönetilir.
-- **Marka paketini dışa aktar** ile oluşan dosya ekipteki herkese dağıtılır; içe aktarınca aynı kimlik kullanılır.
-- Kalıcı varsayılanlar `js/brand.js` dosyasındadır (renk kodları kurumsal kimlik kılavuzundaki resmi değerlerle güncellenmelidir).
-- Serbestlik bilinçli olarak sınırlıdır: renkler paletten, yazı tipleri setlerden, yerleşim şablondan gelir. Metin hiçbir zaman illüstrasyona yer açmak için küçültülmez.
-
-### Yazı tipi setleri
-
-Hepsi Türkçe karakterleri tam destekler; Marka penceresinden değiştirilir.
-
-| Set | Başlık | Metin | Serif (alıntı, tebrik) |
-|---|---|---|---|
-| **Modern (önerilen)** | Plus Jakarta Sans | Inter | Fraunces |
-| Dinamik | Bricolage Grotesque | Manrope | Instrument Serif |
-| Editoryal | Archivo | IBM Plex Sans | Newsreader |
-| Klasik | Montserrat | Source Sans 3 | Playfair Display |
+Çalışmalar tarayıcıda saklanır; **Taslağı kaydet / Taslak aç** ile `.json` olarak paylaşılabilir.
 
 ## Logo ekleme
 
-**Uygulamadan:** Marka & logolar → ilgili satırda *Koyu zemin* / *Açık zemin* kutusuna SVG ya da şeffaf PNG yükleyin. Yeni birim için alttaki “Ekle” alanını kullanın.
+Uygulamadan: **Marka & logolar** → ilgili satıra SVG ya da şeffaf PNG yükleyin.
 
-**Depoya kalıcı olarak (önerilen):**
+Depoya kalıcı olarak:
 
 ```bash
 python3 tools/logo_donustur.py kaynak/fotograf-atolyesi.ai   # .ai, .pdf, .svg, .png
 ```
 
-- `.ai` dosyaları Illustrator'da “PDF uyumlu dosya oluştur” seçeneği açık kaydedilmiş olmalıdır; boş alan otomatik kırpılır. Bu seçenek kapalıysa Illustrator'da *Dosya → Dışa Aktar → SVG* ile kaydedin.
-- Betik dosyayı `assets/logos/` klasörüne yazar ve `js/logos.js` dosyasını yeniden üretir (logolar gömülü olduğu için sayfa `file://` ile açıldığında da dışa aktarma çalışır).
-- Ardından `js/brand.js` içindeki `logos` listesine bir satır ekleyin. Koyu yazılı (şeffaf zeminli) logolar için `panel: true` yazın; koyu temada beyaz plaka üzerinde gösterilir.
+`.ai` dosyaları Illustrator’da “PDF uyumlu dosya oluştur” açık kaydedilmiş olmalı; değilse *Dosya → Dışa Aktar → SVG*. Betik dosyayı `assets/logos/` klasörüne yazar ve `js/logos.js` dosyasını yeniden üretir (logolar gömülü olduğu için `file://` ile açıldığında da dışa aktarım çalışır). Ardından `js/brand.js` içindeki `logos` listesine bir satır ekleyin (`group`, isteğe bağlı `motif`, koyu yazılı logolar için `panel: true`).
 
-Gereksinimler: `poppler-utils` (pdftocairo) ve Python Pillow.
+## Video
 
-## Video hakkında
+Chrome/Edge doğrudan **MP4 (H.264)** kaydeder. H.264 desteklemeyen tarayıcılar WebM üretir; Instagram için:
+`ffmpeg -i video.webm -c:v libx264 -pix_fmt yuv420p -movflags +faststart video.mp4`
 
-- Chrome/Edge doğrudan **MP4 (H.264)** kaydeder. H.264 desteklemeyen tarayıcılar WebM üretir; Instagram için dönüştürün:
-  `ffmpeg -i video.webm -c:v libx264 -pix_fmt yuv420p -movflags +faststart video.mp4`
-- Başlık ve logo ilk 1–2 saniyede ekrandadır (izleyicinin ilk saniyelerde mesajı görmesi önerilir).
+Videoda mesh lekeleri yavaşça akar, motif canlanır (film şeridi kayar, ses dalgası titreşir, takvimde son gün dolar), metinler sırayla gelir. Vefat/anma türünde yalnızca yavaş belirme vardır.
 
 ## Araştırma temelli kararlar
 
 | Karar | Dayanak |
 |---|---|
-| Story/Reels'te üst %14, alt %20 (Story) / %35 (Reels) ve Reels'te sağ kenar boş bırakılır | Meta reklam güvenli alan yönergeleri |
-| 4:5 gönderide önemli içerik ortadaki 3:4 alanda tutulur | Instagram'ın 2025'ten beri profil ızgarasını 3:4 kırpması |
-| Görseldeki metin az tutulur, ayrıntı açıklamaya taşınır; kelime sayacı uyarır | Meta: metni %20'nin altındaki görseller genelde daha iyi performans gösterir (kural 2020'de kaldırıldı, öneri olarak sürüyor) |
-| Fotoğraf alanları, “yüz içeren fotoğraf” ipucu | Bakhshi, Shamma & Gilbert (CHI 2014): yüz içeren Instagram fotoğrafları %38 daha fazla beğeni, %32 daha fazla yorum |
-| Metin kontrastı ≥ 4.5:1 denetlenir, fotoğraflara okunabilirlik perdesi eklenir | WCAG 2.2, 1.4.3 |
-| Alternatif metin ve CamelCase etiket taslağı | WCAG; ekran okuyucu erişilebilirliği. Etiketlerin erişime katkısı sınırlıdır (Instagram, Mosseri), bu yüzden 3–5 ile sınırlı |
-| Video süresi seçenekli (6–30 sn) | Tek bir “en iyi süre” yoktur; büyük veri setleri farklı sonuçlar veriyor (Socialinsider 2026) |
+| Story/Reels güvenli alanları | Meta reklam güvenli alan yönergeleri |
+| 4:5’te önemli içerik ortadaki 3:4 alanda | Instagram profil ızgarasının 3:4 kırpması (2025) |
+| Görselde az metin; kelime sayacı | Meta: metni az görseller genelde daha iyi performans gösterir |
+| Fotoğraf önerisi | Bakhshi, Shamma & Gilbert (CHI 2014): yüz içeren fotoğraflar daha çok beğeni ve yorum alır |
+| Kontrast denetimi (≥ 4.5:1) | WCAG 2.2, 1.4.3 |
+| Alternatif metin ve CamelCase etiketler | Erişilebilirlik; etiketlerin erişime etkisi sınırlı olduğundan 3–5 adet |
 
 ## Dosya yapısı
 
 ```
-index.html            Arayüz
-css/style.css         Arayüz stilleri
-js/brand.js           Kurumsal kimlik: renkler, yazı tipleri, logolar, formatlar, temalar
-js/logos.js           Gömülü logolar (tools/logo_donustur.py üretir)
-js/draw.js            Çizim yardımcıları (metin sığdırma, ikonlar, motifler)
-js/illus.js           Vektör illüstrasyonlar
-js/templates.js       Şablonlar, desenler, yerleşim motoru
-js/app.js             Arayüz mantığı, dışa aktarma, kontroller, paylaşım metni
-assets/logos/         Logo kaynakları (SVG)
+index.html              Stüdyo arayüzü
+kimlik.html             Kimlik kılavuzu (renk paleti, font kiti, logolar, kurallar)
+css/style.css           Arayüz stilleri
+js/brand.js             Renkler, yazı tipi, logolar, formatlar, mesh tonları, motifler
+js/logos.js             Gömülü logolar (tools/logo_donustur.py üretir)
+js/draw.js              Çizim yardımcıları (metin sığdırma, tarih, ikonlar)
+js/bg.js                Zemin: mesh, beyaz tül, nokta ve kâğıt dokusu, konu motifleri
+js/templates.js         İçerik türleri ve yerleşim motoru
+js/app.js               Arayüz, dışa aktarma, kontroller, paylaşım metni
+assets/logos/           Logo kaynakları (SVG)
 tools/logo_donustur.py  .ai/.pdf/.svg/.png → SVG + js/logos.js
 ```
 
-## Yeni şablon eklemek
+## Yeni içerik türü eklemek
 
-`js/templates.js` içinde `T.push({...})` ile: `id`, `name`, `desc`, `accent` (palet anahtarı), `fields` (form alanları) ve `render(ctx, d, env)`.
-`render` içinde `frame()` ortak arka plan/başlık/altbilgiyi çizip içerik kutusunu döndürür. İçerik `B.tag`, `B.text`, `B.meta`, `B.list`, `B.table`, `B.image`, `B.partners` blokları ve `stack()` / `withArt()` ile yerleştirilir; bloklar her formata kendiliğinden uyum sağlar.
+`js/templates.js` içinde `T.push({...})`: `id`, `name`, `desc`, `mesh`, `motif` (ya da `motifOf(d)`), `fields` ve `render(ctx, d, env)`.
+`render` içinde `compose(ctx, env, { photo, poster, top: [...], bottom: [...] })` çağrılır; bloklar (`B.cat`, `B.title`, `B.lead`, `B.facts`, `B.dateSq`, `B.deadline`, `B.bignum`, `B.list`, `B.wave`, `B.partners`) her formata kendiliğinden uyar.
 
 ## Yayınlama
 
-Statik bir sitedir: GitHub Pages'te depo ayarlarından *Pages → Deploy from branch* seçilerek doğrudan yayınlanabilir.
+Statik bir sitedir: GitHub Pages’te *Settings → Pages → Deploy from branch* ile yayınlanabilir.

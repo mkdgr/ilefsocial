@@ -54,12 +54,15 @@
   D.fit = (ctx, text, o) => {
     const t = o.upper ? D.upper(text) : String(text || '');
     let size = o.max;
-    if (o.ls) D.ls(ctx, o.ls);
     for (;;) {
+      const lsPx = o.lsEm != null ? o.lsEm * size : o.ls || 0;
+      D.ls(ctx, lsPx);
       ctx.font = D.font(o.weight, size, o.family);
       let lines = D.wrap(ctx, t, o.maxW);
       const lh = size * (o.lh || 1.2);
-      const fits = lines.length * lh <= o.maxH && (!o.maxLines || lines.length <= o.maxLines);
+      // kelime bölünmesin: en uzun kelime sütuna sığana kadar küçült
+      const longest = t.split(/\s+/).reduce((m, w) => Math.max(m, ctx.measureText(w).width), 0);
+      const fits = lines.length * lh <= o.maxH && (!o.maxLines || lines.length <= o.maxLines) && longest <= o.maxW;
       if (fits || size <= o.min) {
         let maxLines = Math.max(1, Math.floor(o.maxH / lh));
         if (o.maxLines) maxLines = Math.min(maxLines, o.maxLines);
@@ -70,8 +73,8 @@
           lines[maxLines - 1] = last.replace(/\s+$/, '') + '…';
         }
         const w = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
-        if (o.ls) D.ls(ctx, 0);
-        return { size, lines, lh, h: lines.length * lh, w, weight: o.weight, family: o.family, ls: o.ls || 0 };
+        D.ls(ctx, 0);
+        return { size, lines, lh, h: lines.length * lh, w, weight: o.weight, family: o.family, ls: lsPx };
       }
       size = Math.max(o.min, size * 0.94);
     }
@@ -89,6 +92,17 @@
     D.ls(ctx, 0);
     ctx.textAlign = 'left';
   };
+
+  // Tarih yardımcıları (input[type=date] değeri: YYYY-MM-DD)
+  D.AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  D.GUNLER = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  D.parseDate = (s) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''));
+    if (!m) return null;
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    return { y: +m[1], mo: +m[2] - 1, d: +m[3], wd: d.getDay(), date: d, month: D.AYLAR[+m[2] - 1], weekday: D.GUNLER[d.getDay()] };
+  };
+  D.fmtDate = (s, withDay) => { const p = D.parseDate(s); return p ? `${p.d} ${p.month}${withDay ? ' ' + p.weekday : ''}` : String(s || ''); };
 
   D.rr = (ctx, x, y, w, h, r) => {
     r = Math.min(r, w / 2, h / 2);
