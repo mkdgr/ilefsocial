@@ -50,7 +50,13 @@
   state.layouts = state.layouts || {};
   const tplOf = (id) => TPLS.find((t) => t.id === id) || TPLS[0];
   const fmtOf = (id) => FORMATS.find((f) => f.id === id) || FORMATS[0];
-  const dataOf = (tpl) => (state.data[tpl.id] = Object.assign(defaults(tpl), state.data[tpl.id] || {}));
+  // Aynı nesne korunur (form alanları bu nesneye yazar); eksik alanlar varsayılanla tamamlanır
+  const dataOf = (tpl) => {
+    const cur = state.data[tpl.id] || (state.data[tpl.id] = {});
+    const def = defaults(tpl);
+    for (const k in def) if (!(k in cur)) cur[k] = def[k];
+    return cur;
+  };
   const unitOf = () => brand.logos.find((l) => l.id === state.unitId && (l.group === 'bolum' || l.group === 'atolye')) || null;
   let saveTimer;
   function saveState() {
@@ -235,10 +241,10 @@
           const file = e.target.files[0];
           if (!file) return;
           try { d[f.key] = await loadPhoto(file); d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; } catch (err) { status('Görsel okunamadı.', true); return; }
-          saveState(); buildFields(); scheduleRender();
+          refresh();
         };
         const rm = lab.querySelector('[data-act=rm]');
-        if (rm) rm.onclick = (e) => { e.preventDefault(); d[f.key] = ''; saveState(); buildFields(); scheduleRender(); };
+        if (rm) rm.onclick = (e) => { e.preventDefault(); d[f.key] = ''; refresh(); };
         lab.querySelectorAll('input[type=range]').forEach((r) => { r.oninput = () => { d[r.dataset.k] = +r.value; saveState(); scheduleRender(); }; });
       } else if (f.type === 'logos') {
         const arr = Array.isArray(d[f.key]) ? d[f.key] : (d[f.key] = []);
