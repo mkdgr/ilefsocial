@@ -8,6 +8,8 @@
   const clone = (o) => JSON.parse(JSON.stringify(o));
 
   // ------------------------------------------------------------ Depolama
+  // claude.ai gibi kısıtlı ortamlarda tarayıcı belleği kapalıdır; o zaman sessizce atlanır
+  const canStore = (() => { try { localStorage.setItem('__ilef', '1'); localStorage.removeItem('__ilef'); return true; } catch (e) { return false; } })();
   const ls = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
@@ -37,7 +39,7 @@
   }
   let brand = mergeBrand(ls.get(BRAND_KEY));
   function saveBrand() {
-    if (!ls.set(BRAND_KEY, brand)) status('Marka ayarları tarayıcıya kaydedilemedi (alan dolu olabilir). Marka paketini dışa aktarın.', true);
+    if (canStore && !ls.set(BRAND_KEY, brand)) status('Marka ayarları tarayıcıya kaydedilemedi (alan dolu olabilir). Marka paketini dışa aktarın.', true);
   }
 
   // ------------------------------------------------------------ Durum
