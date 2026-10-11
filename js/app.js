@@ -328,10 +328,24 @@
     $('#btnAll').textContent = n > 1 ? `Tüm sayfalar (${n} PNG)` : 'Tüm formatlar (PNG)';
   }
 
+  // Gömülü görünümlerde confirm()/alert() çalışmayabilir: o durumda onay sormadan devam et, mesajı durum satırında göster
+  const embedded = !!(window.claude && window.claude.use);
+  const ask = (msg) => (embedded ? true : confirm(msg));
+  const tell = (msg) => (embedded ? status(msg, true) : alert(msg));
+
   // ------------------------------------------------------------ Dışa aktarma
   const today = () => new Date().toISOString().slice(0, 10);
   const fileBase = (tpl, fmt) => `ilef-${tpl.id}-${fmt.id}-${today()}`;
-  function download(blob, name) {
+  // claude.ai'de yayınlandığında indirmeler platformun "downloads" yeteneğiyle yapılır
+  let dlCap;
+  const dlReady = (window.claude && window.claude.use) ? window.claude.use('downloads').then((d) => (dlCap = d)).catch(() => (dlCap = null)) : Promise.resolve(null);
+  async function download(blob, name) {
+    await dlReady;
+    if (dlCap) {
+      try { await dlCap.save({ filename: name, data: blob }); }
+      catch (e) { if (e && e.code !== 'declined') status('Dosya kaydedilemedi: ' + (e.message || e.code), true); }
+      return;
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
@@ -363,7 +377,7 @@
     const c = document.createElement('canvas');
     renderTo(c, fmt, Infinity, undefined, undefined, slide);
     const blob = await canvasBlob(c);
-    download(blob, fileBase(tplOf(state.tplId), fmt) + (slide != null ? `-${String(slide + 1).padStart(2, '0')}` : '') + '.png');
+    await download(blob, fileBase(tplOf(state.tplId), fmt) + (slide != null ? `-${String(slide + 1).padStart(2, '0')}` : '') + '.png');
     if (fmt.id === 'post45' && !slide) { gridItems.unshift(gridThumb(c)); saveGrid(); }
   }
 
@@ -457,7 +471,7 @@
   };
   $('#btnReset').onclick = () => {
     const tpl = tplOf(state.tplId);
-    if (!confirm('Bu şablondaki metinler örnek içerikle değiştirilsin mi?')) return;
+    if (!ask('Bu şablondaki metinler örnek içerikle değiştirilsin mi?')) return;
     state.data[tpl.id] = defaults(tpl);
     refresh();
   };
@@ -494,12 +508,12 @@
           const file = inp.files[0];
           if (!file) return;
           try { l[inp.dataset.kind] = await loadLogo(file); }
-          catch (e) { alert(e.message === 'ai' ? 'Illustrator (.ai) dosyası tarayıcıda okunamaz. Illustrator’da Dosya → Dışa Aktar → SVG ile kaydedip yükleyin ya da tools/logo_donustur.py betiğini kullanın.' : 'Dosya okunamadı.'); return; }
+          catch (e) { tell(e.message === 'ai' ? 'Illustrator (.ai) dosyası tarayıcıda okunamaz. Illustrator’da Dosya → Dışa Aktar → SVG ile kaydedip yükleyin ya da tools/logo_donustur.py betiğini kullanın.' : 'Dosya okunamadı.'); return; }
           saveBrand(); buildBrandDlg(); scheduleRender();
         };
       });
       row.querySelector('[data-act=del]').onclick = () => {
-        if (!confirm(`"${l.name}" kütüphaneden kaldırılsın mı?`)) return;
+        if (!ask(`"${l.name}" kütüphaneden kaldırılsın mı?`)) return;
         brand.logos = brand.logos.filter((x) => x !== l);
         if (BRAND_DEFAULT.logos.some((d) => d.id === l.id)) brand.removed.push(l.id);
         saveBrand(); buildBrandDlg();
@@ -524,7 +538,7 @@
     });
   }
   $('#btnBrandReset').onclick = () => {
-    if (!confirm('Tüm marka ayarları ve yüklenen logolar varsayılana dönsün mü?')) return;
+    if (!ask('Tüm marka ayarları ve yüklenen logolar varsayılana dönsün mü?')) return;
     ls.del(BRAND_KEY);
     brand = mergeBrand(null);
     buildBrandDlg(); loadFonts();
@@ -541,7 +555,7 @@
       if (b.tur !== 'ilef-studyo-marka') throw new Error();
       brand = mergeBrand(b);
       saveBrand(); buildBrandDlg(); loadFonts();
-    } catch (err) { alert('Bu dosya bir marka paketi değil.'); }
+    } catch (err)  { tell('Bu dosya bir marka paketi değil.'); }
   };
 
   // ------------------------------------------------------------ Kontroller (araştırma temelli)
