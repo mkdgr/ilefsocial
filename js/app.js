@@ -323,7 +323,7 @@
     if (!drag || e.pointerId !== drag.id) return;
     const p = toCanvas(e), dx = p.x - drag.p0.x, dy = p.y - drag.p0.y;
     if (!drag.moved && Math.hypot(dx, dy) * p.k < 4) return;
-    if (!drag.moved) { drag.moved = true; hitLayer.classList.add('dragging'); if (textKey) endText(); closeEditor(); }
+    if (!drag.moved) { drag.moved = true; hitLayer.classList.add('dragging'); document.body.classList.add('dragging'); try { window.getSelection().removeAllRanges(); } catch (x) { /* yok say */ } if (textKey) endText(); closeEditor(); }
     const { h0, o0 } = drag;
     if (drag.mode === 'move') {
       const r = snapMove(h0, o0, dx, dy, p.k);
@@ -356,7 +356,7 @@
   function endDrag(e) {
     if (!drag || (e && e.pointerId !== drag.id)) return;
     const d0 = drag; drag = null;
-    hitLayer.classList.remove('dragging'); guides.innerHTML = '';
+    hitLayer.classList.remove('dragging'); document.body.classList.remove('dragging'); guides.innerHTML = '';
     if (d0.moved) { saveState(); scheduleRender(); buildCtx(); return; }
     // sürüklenmeden bırakıldı: seçiliyse düzenlemeye geç
     if (d0.mode !== 'resize' && d0.wasSel) activate(d0.key);
@@ -801,7 +801,7 @@
       b.title = t.desc;
       b.setAttribute('aria-pressed', t.id === state.tplId);
       b.innerHTML = `<canvas width="240" height="240" data-id="${t.id}"></canvas><b>${t.name}</b>`;
-      b.onclick = () => { if (state.tplId !== t.id) { select(null); state.tplId = t.id; state.slide = 0; refresh(); } openPanel(null); };
+      b.onclick = () => { if (state.tplId !== t.id) { select(null); state.tplId = t.id; state.slide = 0; refresh(); } if (window.innerWidth <= 900) openPanel(null); };
       b.dataset.q = (t.name + ' ' + t.desc).toLocaleLowerCase('tr-TR');
       (grids[t.cat || ''] || grids[Object.keys(grids)[0]] || g).appendChild(b);
     });

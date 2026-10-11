@@ -347,3 +347,11 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
 @media (max-width: 900px), (pointer: coarse) {
   input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea:not(.text-ed) { font-size: 16px !important; }
 }
+
+/* Tuvalde sürüklerken / basılı tutarken yazı seçimi ve büyüteç çıkmasın */
+.stage-canvas, .canvas-wrap, .hit-layer, .sel, .guides, #cv, .rail, .ctxbar, .workfoot, .topbar, .tpl, .lay-card, .unit-grid, .up-grid {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+#cv, .up-grid img, .tpl canvas { -webkit-user-drag: none; }
+body.dragging, body.dragging * { -webkit-user-select: none !important; user-select: none !important; }
+.text-ed, .ctxbar input, .ctxbar select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
