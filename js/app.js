@@ -760,6 +760,12 @@
   }
   document.querySelectorAll('.rail [data-panel]').forEach((b) => { b.onclick = () => openPanel(curPanel === b.dataset.panel ? null : b.dataset.panel); });
   $('#panelClose').onclick = () => openPanel(null);
+  // Telefonda panel açıkken çalışma alanına dokunmak yalnızca paneli kapatır (öğe seçmez)
+  document.querySelector('.work').addEventListener('pointerdown', (e) => {
+    if (window.innerWidth > 900 || !curPanel || e.target.closest('#panel')) return;
+    e.preventDefault(); e.stopPropagation();
+    openPanel(null);
+  }, true);
 
   function closeMenus() { document.querySelectorAll('.menu-pop').forEach((m) => { m.hidden = true; }); }
   document.querySelectorAll('[data-menu]').forEach((b) => {
