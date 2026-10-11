@@ -270,16 +270,32 @@
     ctx.fillStyle = o.red; ctx.fillRect(x - lw / 2, y - lw / 2, q * qp, q * qp);
     // içerik
     ctx.globalAlpha *= D.prog(env.t, 0.8, 0.8);
+    // Dengeli üç kat: üstte etiket (kırmızı karenin yanında), ortada gün, altta ay + gün adı / yıl.
+    // Saat karta girmez; gönderinin bilgi satırında yazılır.
     ctx.fillStyle = o.ink; ctx.textBaseline = 'alphabetic';
-    const pad = s * 0.075;
-    if (o.label) { ctx.font = D.font(600, s * 0.062, brand.fonts.body); ctx.textBaseline = 'middle'; ctx.fillText(o.label, x + q + pad * 0.9, y + q / 2, s - q - pad * 1.8); ctx.textBaseline = 'alphabetic'; }
-    const fz = s * 0.075, footY = y + s - pad;
-    ctx.font = D.font(600, fz, brand.fonts.body);
-    if (o.foot) ctx.fillText(o.foot, x + pad, footY, s * 0.55);
-    if (o.footR) { ctx.font = D.font(500, fz, brand.fonts.body); ctx.textAlign = 'right'; ctx.globalAlpha *= 0.75; ctx.fillText(o.footR, x + s - pad, footY, s * 0.45); ctx.globalAlpha /= 0.75; ctx.textAlign = 'left'; }
-    const big = s * 0.68;
-    D.ls(ctx, -0.07 * big); ctx.font = D.font(600, big, brand.fonts.head);
-    ctx.fillText(String(p.d), x + pad - big * 0.04, footY - fz * 1.25, s - pad * 1.5);
+    const pad = s * 0.08;
+    if (o.label) {
+      let lz = s * 0.078; ctx.font = D.font(600, lz, brand.fonts.body);
+      const lw2 = s - q - pad * 1.8;
+      while (ctx.measureText(o.label).width > lw2 && lz > s * 0.05) { lz *= 0.94; ctx.font = D.font(600, lz, brand.fonts.body); }
+      ctx.textBaseline = 'middle'; ctx.fillText(o.label, x + q + pad * 0.8, y + q / 2, lw2); ctx.textBaseline = 'alphabetic';
+    }
+    const footY = y + s - pad;
+    let mz = s * 0.12; ctx.font = D.font(600, mz, brand.fonts.head);
+    const sub = o.footR ? String(o.footR) : '';
+    const subZ = s * 0.072;
+    const room = () => s - 2 * pad - (sub ? (ctx.font = D.font(500, subZ, brand.fonts.body), ctx.measureText(sub).width + pad * 0.6) : 0);
+    const fitMonth = () => { ctx.font = D.font(600, mz, brand.fonts.head); return ctx.measureText(o.foot || '').width; };
+    while (o.foot && fitMonth() > room() && mz > s * 0.07) mz *= 0.94;
+    if (o.foot) { D.ls(ctx, -0.02 * mz); ctx.font = D.font(600, mz, brand.fonts.head); ctx.fillText(o.foot, x + pad, footY); D.ls(ctx, 0); }
+    if (sub) { ctx.font = D.font(500, subZ, brand.fonts.body); ctx.textAlign = 'right'; ctx.globalAlpha *= 0.72; ctx.fillText(sub, x + s - pad, footY); ctx.globalAlpha /= 0.72; ctx.textAlign = 'left'; }
+    // gün: etiket ile ay arasındaki alanı dengeli doldurur
+    const top = y + q + s * 0.05, bottom = footY - mz * 0.95 - s * 0.06;
+    let big = Math.min(s * 0.62, (bottom - top) / 0.73);
+    D.ls(ctx, -0.06 * big); ctx.font = D.font(600, big, brand.fonts.head);
+    while (ctx.measureText(String(p.d)).width > s - 2 * pad && big > s * 0.3) { big *= 0.95; D.ls(ctx, -0.06 * big); ctx.font = D.font(600, big, brand.fonts.head); }
+    const cap = big * 0.72;
+    ctx.fillText(String(p.d), x + pad - big * 0.035, top + (bottom - top + cap) / 2);
     D.ls(ctx, 0);
     ctx.restore();
     void u;
@@ -292,7 +308,7 @@
     return { key: o.key || env.keyOf(dateStr), gap: o.gap != null ? o.gap : 44, layout() {
       const s = (o.size || 250) * u * Math.min(env.fs, 1.2);
       return { h: s, draw(ctx, x, y) {
-        if (p) dateFrame(ctx, env, p, { x, y, s, ink: pal.fg, red: env.brand.colors.red, label: o.label || p.weekday, foot: p.month });
+        if (p) dateFrame(ctx, env, p, { x, y, s, ink: pal.fg, red: env.brand.colors.red, label: o.label || p.weekday, foot: p.month, footR: o.label && o.label !== p.weekday ? p.weekday : String(p.y) });
         else { ctx.fillStyle = pal.fg; ctx.font = D.font(600, s * 0.16, brand.fonts.body); ctx.textBaseline = 'middle'; ctx.fillText(String(dateStr), x, y + s / 2, s * 2); }
         ctx.textAlign = 'left';
         const lines = (side || []).filter(Boolean);
@@ -685,7 +701,7 @@
     const { u, W, m, brand } = env;
     const s = 230 * u * Math.min(env.fs, 1.15), x = W - m - env.mr - s, y = sigBottom + 50 * u;
     hit(env, env.keyOf(c.date), x, y, s, s);
-    dateFrame(ctx, env, p, { x, y, s, ink: '#FFFFFF', red: env.brand.colors.red, glass: true, label: p.weekday, foot: p.month, footR: c.time || '' });
+    dateFrame(ctx, env, p, { x, y, s, ink: '#FFFFFF', red: env.brand.colors.red, glass: true, label: p.weekday, foot: p.month, footR: String(p.y) });
     void brand;
   }
 
@@ -705,7 +721,7 @@
     const fx = env.wide ? m : m;
     s = Math.min(s, (env.wide ? H : W) - 2 * m);
     hit(env, env.keyOf(spec.dev.date), fx, sy + 10 * u, s, s);
-    dateFrame(ctx, env, p, { x: fx, y: sy + 10 * u, s, ink: env.pal.fg, red: brand.colors.red, label: spec.dev.label || p.weekday, foot: p.month, footR: spec.dev.sub || (spec.dev.label ? p.weekday : '') });
+    dateFrame(ctx, env, p, { x: fx, y: sy + 10 * u, s, ink: env.pal.fg, red: brand.colors.red, label: spec.dev.label || p.weekday, foot: p.month, footR: spec.dev.label && spec.dev.label !== p.weekday ? p.weekday : String(p.y) });
     void sx;
     signature(ctx, env);
     let box;
@@ -844,13 +860,13 @@
       if (env.layout === 'tam' && ph) {
         compose(ctx, env, { layout: 'tam', photo: ph, corner: { date: d.tarih, time: d.saat },
           top: [B.cat(env, d.tur), B.title(env, d.baslik, { gap: 26, max: 112, maxLines: 3 }), B.lead(env, speakers, { weight: 600, color: 'fg', gap: 18, flex: 0.5, maxLines: 2 })],
-          bottom: [B.partners(env, partnersOf(env, d), d.ortakEtiket)], footL: d.yer, footR: 'Herkese açıktır' });
+          bottom: [B.partners(env, partnersOf(env, d), d.ortakEtiket)], footL: [d.saat, d.yer].filter(Boolean).join(' · '), footR: 'Herkese açıktır' });
         return;
       }
       if (env.layout === 'dev' && D.parseDate(d.tarih)) {
-        compose(ctx, env, { layout: 'dev', dev: { date: d.tarih, label: D.parseDate(d.tarih).weekday, sub: d.saat },
-          top: [B.cat(env, d.tur), B.title(env, d.baslik, { gap: 24, max: 100, maxLines: 3 }), B.lead(env, speakers, { weight: 600, color: 'fg', gap: 16, flex: 0.5, maxLines: 2 }), B.wave(env, d.baslik, { gap: 24 })],
-          bottom: [B.partners(env, partnersOf(env, d), d.ortakEtiket)], footL: d.yer, footR: 'Herkese açıktır' });
+        compose(ctx, env, { layout: 'dev', dev: { date: d.tarih, label: D.parseDate(d.tarih).weekday },
+          top: [B.cat(env, d.tur), B.title(env, d.baslik, { gap: 24, max: 100, maxLines: 3 }), B.lead(env, speakers, { weight: 600, color: 'fg', gap: 16, flex: 0.5, maxLines: 2 })],
+          bottom: [B.partners(env, partnersOf(env, d), d.ortakEtiket)], footL: [d.saat && 'Saat ' + d.saat, d.yer].filter(Boolean).join(' · '), footR: 'Herkese açıktır' });
         return;
       }
       compose(ctx, env, { photo: ph, top, bottom, footL: env.brand.web, footR: 'Herkese açıktır' });
@@ -1134,7 +1150,7 @@
       if (env.layout === 'tam' && ph) {
         compose(ctx, env, { layout: 'tam', photo: ph, corner: { date: d.tarih, time: d.saat },
           top: [B.cat(env, d.etiket), B.title(env, d.program, { gap: 24, max: 118, maxLines: 2 }), B.lead(env, d.bolum, { weight: 600, color: 'fg', gap: 16, flex: 0.5, maxLines: 2 })],
-          bottom: [], footL: d.platform, footR: env.brand.social });
+          bottom: [], footL: [d.saat, d.platform].filter(Boolean).join(' · '), footR: env.brand.social });
         return;
       }
       compose(ctx, env, {
