@@ -389,6 +389,26 @@
     ctx.filter = 'none';
     ctx.restore();
   }
+  // Fotoğrafı zemine eriterek çizer: kenarlar alfa maskesiyle yumuşar (fotoğrafın başladığı yer belli olmaz)
+  // fade: { left, right, top, bottom } — kenardan itibaren erime oranı (0..1, kutu boyuna göre)
+  function drawPhotoFaded(ctx, env, ph, x, y, w, h, fade) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+    const x2 = c.getContext('2d');
+    drawPhoto(x2, env, ph, 0, 0, c.width, c.height);
+    x2.globalCompositeOperation = 'destination-in';
+    const mask = (x0, y0, x1, y1, from) => {
+      const g = x2.createLinearGradient(x0, y0, x1, y1);
+      // yumuşak (ease) erime: birkaç ara durakla
+      [0, 0.25, 0.5, 0.75, 1].forEach((k) => g.addColorStop(k, `rgba(0,0,0,${from ? Math.pow(k, 1.6) : 1})`));
+      x2.fillStyle = g; x2.fillRect(0, 0, c.width, c.height);
+    };
+    if (fade.left) mask(0, 0, c.width * fade.left, 0, true);
+    if (fade.right) mask(c.width, 0, c.width * (1 - fade.right), 0, true);
+    if (fade.top) mask(0, 0, 0, c.height * fade.top, true);
+    if (fade.bottom) mask(0, c.height, 0, c.height * (1 - fade.bottom), true);
+    ctx.drawImage(c, x, y);
+  }
   // Hazır afiş: kırpmadan, gölgeyle
   function drawPoster(ctx, env, img, x, y, w, h) {
     const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
@@ -496,10 +516,12 @@
     Ground.paint(ctx, env);
     const p = D.parseDate(spec.dev.date);
     // story/reels: kare imzanın altından başlar (üst güvenli alan boş kalır)
-    let sx = 0, sy = env.tall ? env.top + 104 * u : 0, s;
-    if (env.wide) s = H * 0.82;
+    // kare her zaman imzanın altından başlar, soldan taşar (logolar beyaz zeminde kalır)
+    const sx = 0, sy = env.top + 64 * u + (env.tall ? 50 : 36) * u;
+    let s;
+    if (env.wide) s = Math.min(H * 0.8, env.bottom - sy - 30 * u);
     else if (env.tall) s = Math.min(W * 0.78, (env.bottom - sy) * 0.55);
-    else s = Math.min(W * 0.7, H * 0.56);
+    else s = Math.min(W * 0.66, (env.bottom - sy) * (env.square ? 0.6 : 0.56));
     const pr = D.prog(env.t, 0.1, 0.8);
     ctx.fillStyle = brand.colors.red; ctx.fillRect(sx, sy, s * (0.6 + 0.4 * pr), s * (0.6 + 0.4 * pr));
     // kare içi: etiket, dev gün, ay
@@ -518,7 +540,7 @@
     ctx.font = D.font(600, labSz, brand.fonts.body);
     ctx.fillText(spec.dev.label || p.weekday, sx + pad, baseY - monthSz * 1.35 - big * 0.78, inner);
     ctx.restore();
-    signature(ctx, Object.assign({}, env, { noBadge: true }));
+    signature(ctx, env);
     let box;
     const fb = env.bottom - (spec.footL || spec.footR ? 70 : 20) * u;
     if (env.wide) box = { x: s + 80 * u, y: H * 0.2, w: W - s - 80 * u - m, h: fb - H * 0.2 };
@@ -531,14 +553,9 @@
   function composePortrait(ctx, env, spec) {
     const { W, H, u, m, pal } = env;
     Ground.paint(ctx, env);
-    const bg = pal.bg && pal.bg.startsWith('#') ? pal.bg : '#FFFFFF';
-    let px, py, pw, ph, g;
-    if (env.tall) { px = 0; py = 0; pw = W; ph = H * 0.6; }
-    else { pw = W * (env.wide ? 0.5 : 0.58); px = W - pw; py = 0; ph = H; }
-    drawPhoto(ctx, env, spec.photo, px, py, pw, ph);
-    if (env.tall) { g = ctx.createLinearGradient(0, ph * 0.55, 0, ph); g.addColorStop(0, D.hexA(bg, 0)); g.addColorStop(1, D.hexA(bg, 1)); ctx.fillStyle = g; ctx.fillRect(px, py, pw, ph); }
-    else { g = ctx.createLinearGradient(px, 0, px + pw * 0.5, 0); g.addColorStop(0, D.hexA(bg, 1)); g.addColorStop(1, D.hexA(bg, 0)); ctx.fillStyle = g; ctx.fillRect(px, py, pw * 0.5 + 2, ph); }
-    g = ctx.createLinearGradient(0, 0, 0, 260 * u); g.addColorStop(0, D.hexA(bg, 0.5)); g.addColorStop(1, D.hexA(bg, 0)); ctx.fillStyle = g; ctx.fillRect(px, 0, pw, 260 * u);
+    let px, py, pw, ph;
+    if (env.tall) { px = 0; py = 0; pw = W; ph = H * 0.66; drawPhotoFaded(ctx, env, spec.photo, px, py, pw, ph, { bottom: 0.45, top: 0.12 }); }
+    else { pw = W * (env.wide ? 0.56 : 0.68); px = W - pw; py = 0; ph = H; drawPhotoFaded(ctx, env, spec.photo, px, py, pw, ph, { left: 0.55, top: 0.14 }); }
     const sigBottom = signature(ctx, env);
     const fb = env.bottom - (spec.footL || spec.footR ? 70 : 20) * u;
     const box = env.tall ? { x: m, y: H * 0.5, w: W - 2 * m - env.mr, h: fb - H * 0.5 }
