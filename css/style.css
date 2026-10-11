@@ -341,3 +341,9 @@ dialog::backdrop { background: rgba(8,16,32,.5); }
 .tpl-cat { margin: 18px 0 8px; font-size: 13px; font-weight: 600; color: #374152; }
 .tpl-groups > .tpl-cat:first-child { margin-top: 8px; }
 .tpl-groups + .tpl-desc { margin-top: 14px; }
+
+/* Telefonda dokunma: çift dokunma yakınlaştırması yok, giriş alanları en az 16 px (iOS otomatik yakınlaştırmaz) */
+html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+@media (max-width: 900px), (pointer: coarse) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea:not(.text-ed) { font-size: 16px !important; }
+}

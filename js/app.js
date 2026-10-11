@@ -1,5 +1,12 @@
 /* Arayüz: şablon seçimi, form, önizleme, dışa aktarma, marka ayarları. */
 (function () {
+  // Telefonda giriş alanına dokununca sayfa büyümesin (iOS 16 px altı yazıda otomatik yakınlaştırır).
+  // Gömülü yayında <head> bize ait olmadığından viewport etiketi burada ayarlanır.
+  (() => {
+    let m = document.querySelector('meta[name="viewport"]');
+    if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
+    m.content = 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover';
+  })();
   const { Studio, FORMATS, GROUNDS, MESHES, MOTIFS, LAYOUTS, BRAND_DEFAULT, COLOR_LABELS } = window;
   const TPLS = Studio.templates;
   const STATE_KEY = 'ilef-studyo-durum-v2';
