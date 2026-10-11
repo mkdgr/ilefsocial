@@ -213,6 +213,43 @@
   };
 
   // Kırmızı kare: tarih kutusu + yanında saat/yer
+  // Tarih kartı — "çizgi çerçeve": ince kare, sol üst köşede kırmızı kare, içinde dev gün.
+  // o: { x, y, s, ink, red, label, foot (sol alt), footR (sağ alt), glass (fotoğraf üstü için koyu cam) }
+  function dateFrame(ctx, env, p, o) {
+    const { u, brand } = env;
+    const { x, y, s } = o;
+    const lw = Math.max(2, s * 0.007);
+    const pr = D.prog(env.t, 0.5, 0.8);
+    ctx.save();
+    if (o.glass) { ctx.globalAlpha *= pr; ctx.fillStyle = 'rgba(0,0,0,.42)'; ctx.fillRect(x, y, s, s); ctx.globalAlpha /= pr; }
+    // çerçeve: çizgiler sırayla çizilir
+    ctx.strokeStyle = o.ink; ctx.lineWidth = lw; ctx.lineCap = 'square';
+    const per = 4 * s, L = per * pr;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    const pts = [[x + s, y], [x + s, y + s], [x, y + s], [x, y]];
+    let rem = L, cx = x, cy = y;
+    for (const [nx, ny] of pts) { const d = Math.hypot(nx - cx, ny - cy); const k = Math.min(1, rem / d); ctx.lineTo(cx + (nx - cx) * k, cy + (ny - cy) * k); rem -= d; if (rem <= 0) break; cx = nx; cy = ny; }
+    ctx.stroke();
+    // köşedeki kırmızı kare
+    const q = s * 0.135, qp = D.prog(env.t, 0.3, 0.5);
+    ctx.fillStyle = o.red; ctx.fillRect(x - lw / 2, y - lw / 2, q * qp, q * qp);
+    // içerik
+    ctx.globalAlpha *= D.prog(env.t, 0.8, 0.8);
+    ctx.fillStyle = o.ink; ctx.textBaseline = 'alphabetic';
+    const pad = s * 0.075;
+    if (o.label) { ctx.font = D.font(600, s * 0.062, brand.fonts.body); ctx.textBaseline = 'middle'; ctx.fillText(o.label, x + q + pad * 0.9, y + q / 2, s - q - pad * 1.8); ctx.textBaseline = 'alphabetic'; }
+    const fz = s * 0.075, footY = y + s - pad;
+    ctx.font = D.font(600, fz, brand.fonts.body);
+    if (o.foot) ctx.fillText(o.foot, x + pad, footY, s * 0.55);
+    if (o.footR) { ctx.font = D.font(500, fz, brand.fonts.body); ctx.textAlign = 'right'; ctx.globalAlpha *= 0.75; ctx.fillText(o.footR, x + s - pad, footY, s * 0.45); ctx.globalAlpha /= 0.75; ctx.textAlign = 'left'; }
+    const big = s * 0.68;
+    D.ls(ctx, -0.07 * big); ctx.font = D.font(600, big, brand.fonts.head);
+    ctx.fillText(String(p.d), x + pad - big * 0.04, footY - fz * 1.25, s - pad * 1.5);
+    D.ls(ctx, 0);
+    ctx.restore();
+    void u;
+  }
+
   B.dateSq = (env, dateStr, side, o = {}) => {
     const p = D.parseDate(dateStr);
     if (!p && !dateStr) return null;
@@ -220,14 +257,8 @@
     return { gap: o.gap != null ? o.gap : 44, layout() {
       const s = (o.size || 250) * u * Math.min(env.fs, 1.2);
       return { h: s, draw(ctx, x, y) {
-        const pr = D.prog(env.t, 0.9, 0.6);
-        ctx.fillStyle = pal.accent; ctx.fillRect(x, y + s * (1 - pr), s, s * pr);
-        ctx.fillStyle = pal.accentFg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        if (p) {
-          ctx.font = D.font(600, s * 0.1, brand.fonts.body); ctx.fillText(p.weekday, x + s / 2, y + s * 0.19);
-          D.ls(ctx, -0.04 * s * 0.42); ctx.font = D.font(600, s * 0.42, brand.fonts.head); ctx.fillText(String(p.d), x + s / 2, y + s * 0.52); D.ls(ctx, 0);
-          ctx.font = D.font(600, s * 0.11, brand.fonts.body); ctx.fillText(p.month, x + s / 2, y + s * 0.83);
-        } else { ctx.font = D.font(600, s * 0.16, brand.fonts.body); ctx.fillText(String(dateStr), x + s / 2, y + s / 2, s * 0.9); }
+        if (p) dateFrame(ctx, env, p, { x, y, s, ink: pal.fg, red: env.brand.colors.red, label: o.label || p.weekday, foot: p.month });
+        else { ctx.fillStyle = pal.fg; ctx.font = D.font(600, s * 0.16, brand.fonts.body); ctx.textBaseline = 'middle'; ctx.fillText(String(dateStr), x, y + s / 2, s * 2); }
         ctx.textAlign = 'left';
         const lines = (side || []).filter(Boolean);
         const fz = 34 * u * Math.min(env.fs, 1.15);
@@ -498,53 +529,33 @@
     const p = D.parseDate(c.date);
     if (!p) return;
     const { u, W, m, brand } = env;
-    const s = 220 * u * Math.min(env.fs, 1.15), x = W - m - env.mr - s, y = sigBottom + 50 * u;
-    const pr = D.prog(env.t, 0.8, 0.6);
-    ctx.save();
-    ctx.fillStyle = env.brand.colors.red; ctx.fillRect(x, y + s * (1 - pr), s, s * pr);
-    ctx.globalAlpha *= pr;
-    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = D.font(600, s * 0.1, brand.fonts.body); ctx.fillText(p.weekday, x + s / 2, y + s * 0.18);
-    D.ls(ctx, -0.04 * s * 0.44); ctx.font = D.font(600, s * 0.44, brand.fonts.head); ctx.fillText(String(p.d), x + s / 2, y + s * 0.5); D.ls(ctx, 0);
-    ctx.font = D.font(600, s * 0.1, brand.fonts.body); ctx.fillText(p.month + (c.time ? ' · ' + c.time : ''), x + s / 2, y + s * 0.82, s * 0.92);
-    ctx.restore();
+    const s = 230 * u * Math.min(env.fs, 1.15), x = W - m - env.mr - s, y = sigBottom + 50 * u;
+    dateFrame(ctx, env, p, { x, y, s, ink: '#FFFFFF', red: env.brand.colors.red, glass: true, label: p.weekday, foot: p.month, footR: c.time || '' });
+    void brand;
   }
 
-  // ---------------------------------------------------------------- yerleşim: dev kırmızı kare
+  // ---------------------------------------------------------------- yerleşim: dev tarih kartı
   function composeDev(ctx, env, spec) {
     const { W, H, u, m, brand } = env;
     Ground.paint(ctx, env);
     const p = D.parseDate(spec.dev.date);
     // story/reels: kare imzanın altından başlar (üst güvenli alan boş kalır)
     // kare her zaman imzanın altından başlar, soldan taşar (logolar beyaz zeminde kalır)
-    const sx = 0, sy = env.top + 64 * u + (env.tall ? 50 : 36) * u;
+    const sx = 0, sy = env.top + 64 * u + (env.tall ? 56 : 44) * u;
     let s;
-    if (env.wide) s = Math.min(H * 0.8, env.bottom - sy - 30 * u);
+    if (env.wide) s = Math.min(H * 0.62, env.bottom - sy - 130 * u);
     else if (env.tall) s = Math.min(W * 0.78, (env.bottom - sy) * 0.55);
     else s = Math.min(W * 0.66, (env.bottom - sy) * (env.square ? 0.6 : 0.56));
-    const pr = D.prog(env.t, 0.1, 0.8);
-    ctx.fillStyle = brand.colors.red; ctx.fillRect(sx, sy, s * (0.6 + 0.4 * pr), s * (0.6 + 0.4 * pr));
-    // kare içi: etiket, dev gün, ay
-    const pad = m, inner = s - pad;
-    ctx.save();
-    ctx.globalAlpha *= D.prog(env.t, 0.5, 0.8);
-    ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
-    const big = s * 0.56;
-    const monthSz = s * 0.085, labSz = 30 * u * Math.min(env.fs, 1.15);
-    const baseY = sy + s - pad * 0.9;
-    ctx.font = D.font(600, monthSz, brand.fonts.head); D.ls(ctx, -0.03 * monthSz);
-    ctx.fillText(p.month + (spec.dev.sub ? ' · ' + spec.dev.sub : ''), sx + pad, baseY, inner - 20 * u);
-    D.ls(ctx, -0.06 * big); ctx.font = D.font(600, big, brand.fonts.head);
-    ctx.fillText(String(p.d), sx + pad - big * 0.05, baseY - monthSz * 1.35, inner);
-    D.ls(ctx, 0);
-    ctx.font = D.font(600, labSz, brand.fonts.body);
-    ctx.fillText(spec.dev.label || p.weekday, sx + pad, baseY - monthSz * 1.35 - big * 0.78, inner);
-    ctx.restore();
+    // çizgi çerçeveli dev tarih kartı (kenar boşluğundan başlar)
+    const fx = env.wide ? m : m;
+    s = Math.min(s, (env.wide ? H : W) - 2 * m);
+    dateFrame(ctx, env, p, { x: fx, y: sy + 10 * u, s, ink: env.pal.fg, red: brand.colors.red, label: spec.dev.label || p.weekday, foot: p.month, footR: spec.dev.sub || (spec.dev.label ? p.weekday : '') });
+    void sx;
     signature(ctx, env);
     let box;
     const fb = env.bottom - (spec.footL || spec.footR ? 70 : 20) * u;
-    if (env.wide) box = { x: s + 80 * u, y: H * 0.2, w: W - s - 80 * u - m, h: fb - H * 0.2 };
-    else box = { x: m, y: sy + s + 60 * u, w: W - 2 * m - env.mr, h: fb - (sy + s + 60 * u) };
+    if (env.wide) box = { x: m + s + 90 * u, y: H * 0.2, w: W - s - 90 * u - 2 * m, h: fb - H * 0.2 };
+    else box = { x: m, y: sy + s + 70 * u, w: W - 2 * m - env.mr, h: fb - (sy + s + 60 * u) };
     stack(ctx, env, box, (spec.top || []).concat([B.spacer()], spec.bottom || []));
     footer(ctx, env, spec.footL, spec.footR);
   }

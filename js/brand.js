@@ -81,7 +81,7 @@ window.GROUNDS = [
 // Yerleşimler — ızgarada ritim için türler arasında dönüşümlü kullanılır
 window.LAYOUTS = {
   tam: 'Tam kadraj fotoğraf',
-  dev: 'Dev kırmızı kare (tarih)',
+  dev: 'Dev tarih kartı',
   portre: 'Yan portre',
   kutu: 'Kutulu',
 };
