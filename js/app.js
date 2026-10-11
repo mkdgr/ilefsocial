@@ -259,7 +259,8 @@
     selBox.hidden = !!textKey;
     Object.assign(selBox.style, { left: (h.x / fmt.w) * 100 + '%', top: (h.y / fmt.h) * 100 + '%', width: (h.w / fmt.w) * 100 + '%', height: (h.h / fmt.h) * 100 + '%' });
     selBox.classList.toggle('nohandles', !h.movable || !!textKey);
-    selBox.classList.toggle('low', h.y < fmt.h * 0.06);
+    selBox.classList.toggle('low', h.y < fmt.h * 0.06 && h.h < fmt.h * 0.85);
+    selBox.classList.toggle('inside', h.y < fmt.h * 0.06 && h.h >= fmt.h * 0.85);
     const f = fieldOf(selKey), s = curOv(selKey).s;
     $('#selTag').textContent = drag && drag.mode === 'resize' ? `%${Math.round((s || 1) * 100)}` : f ? shortLabel(f) : '';
   }
@@ -484,6 +485,7 @@
   function buildCtx() {
     const bar = $('#ctxBar'), tpl = tplOf(state.tplId), d = dataOf(tpl);
     bar.innerHTML = '';
+    bar.scrollLeft = 0;
     const add = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); const el = t.content.firstChild; bar.appendChild(el); return el; };
     const btn = (label, fn, cls = '', title = '') => { const b = add(`<button type="button" class="cb ${cls}" ${title ? `title="${esc(title)}"` : ''}>${label}</button>`); b.onclick = fn; return b; };
     const sep = () => add('<span class="sep"></span>');
@@ -573,7 +575,7 @@
     if (!selKey) return;
     const f = fieldOf(selKey), h = merged.get(selKey), d = dataOf(tplOf(state.tplId));
     if (f.type === 'image') { d[selKey] = ''; saveState(); select(null); refresh(); return; }
-    if (h && h.movable) { const k = selKey; select(null); setOv(k, { hidden: true }); buildHidden(); status(`“${shortLabel(f)}” silindi. Geri almak için Ctrl+Z ya da Metin panelinden geri getirin.`); }
+    if (h && h.movable) { const k = selKey; select(null); setOv(k, { hidden: true }); buildHidden(); status(`“${shortLabel(f)}” silindi.`, false, { label: 'Geri al', fn: () => { setOv(k, { hidden: null }); buildHidden(); } }); }
   }
   function buildHidden() {
     const el = $('#hiddenList'), tpl = tplOf(state.tplId), all = (state.ov[tpl.id] && state.ov[tpl.id].all) || {};
@@ -783,10 +785,20 @@
   $('#stageBox').addEventListener('wheel', (e) => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); setZoom(curK() * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
 
   // ------------------------------------------------------------ Arayüz
-  function status(msg, err) {
+  // Bildirim balonu (Canva'daki gibi): kısa süre görünür, isteğe bağlı "Geri al" gibi bir düğmeyle
+  let toastTimer;
+  function status(msg, err, action) {
     const el = $('#status');
     el.textContent = msg || '';
     el.classList.toggle('err', !!err);
+    const t = $('#toast');
+    clearTimeout(toastTimer);
+    if (!msg) { t.hidden = true; return; }
+    t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button">${esc(action.label)}</button>` : ''}`;
+    t.classList.toggle('err', !!err);
+    if (action) t.querySelector('button').onclick = () => { t.hidden = true; action.fn(); };
+    t.hidden = false;
+    toastTimer = setTimeout(() => { t.hidden = true; }, err ? 7000 : action ? 6000 : 3500);
   }
 
   function buildTemplates() {
@@ -977,6 +989,7 @@
     const n = slideCount(), bar = $('#slideBar'), fmt = fmtOf(state.fmtId), tpl = tplOf(state.tplId);
     if (state.slide >= n) state.slide = 0;
     const many = tpl.fields.find((f) => f.type === 'images');
+    document.querySelector('.workfoot').classList.toggle('single', n < 2 && !many);
     const cw = Math.round((92 * fmt.w) / fmt.h);
     bar.innerHTML = Array.from({ length: n }, (_, i) => `<button type="button" data-s="${i}" aria-pressed="${i === state.slide}" title="${i ? 'Sayfa ' + (i + 1) : n > 1 ? 'Kapak' : 'Sayfa'}"><canvas width="${cw}" height="92"></canvas>${i + 1}</button>`).join('')
       + (many && n < 10 ? '<button type="button" class="add" title="Sayfa ekle (fotoğraf)">+</button>' : '');

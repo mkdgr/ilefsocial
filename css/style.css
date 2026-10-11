@@ -355,3 +355,18 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
 #cv, .up-grid img, .tpl canvas { -webkit-user-drag: none; }
 body.dragging, body.dragging * { -webkit-user-select: none !important; user-select: none !important; }
 .text-ed, .ctxbar input, .ctxbar select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+
+/* Bildirim balonu */
+.toast { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 70px; z-index: 30; max-width: min(560px, calc(100% - 24px)); display: flex; align-items: center; gap: 14px; background: #18191b; color: #fff; padding: 10px 12px 10px 16px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: 14px; line-height: 1.35; animation: toastIn .18s ease-out; }
+.toast.err { background: #8f1d23; }
+.toast button { flex: none; border: 0; background: rgba(255,255,255,.14); color: #fff; padding: 6px 12px; border-radius: 6px; font-weight: 600; }
+.toast button:hover { background: rgba(255,255,255,.24); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
+.workfoot .status { visibility: hidden; }
+.sel.inside .sel-tag { top: 10px; bottom: auto; }
+@media (max-width: 900px) {
+  /* telefonda tek sayfalık tasarımda alt şerit yok; karuselde yalnızca sayfalar */
+  .workfoot.single { display: none; }
+  .workfoot .status, .workfoot .zoom { display: none; }
+  .toast { position: fixed; bottom: calc(var(--tabs) + 66px); }
+}
