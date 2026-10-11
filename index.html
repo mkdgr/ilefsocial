@@ -22,7 +22,7 @@
           <button type="button" id="btnReset"><i>↺</i>Örnek içeriğe dön</button>
           <button type="button" id="btnResetPos"><i>⌖</i>Tüm konumları sıfırla</button>
           <hr />
-          <button type="button" id="btnBrand"><i>◐</i>Marka &amp; logolar</button>
+          <button type="button" id="btnBrand"><i>◐</i>Kurum &amp; marka</button>
           <a class="btnlike" href="kimlik.html" target="_blank" rel="noopener"><i>¶</i>Kimlik kılavuzu</a>
         </div>
       </div>
@@ -74,7 +74,8 @@
       <button type="button" class="panel-close" id="panelClose" aria-label="Paneli kapat" title="Paneli kapat">‹</button>
       <section data-p="sablon">
         <h2>Şablonlar</h2>
-        <div id="tplGrid" class="tpl-grid"></div>
+        <input type="search" id="tplSearch" class="fullsel search" placeholder="Şablon ara: vefat, staj, program…" aria-label="Şablon ara" />
+        <div id="tplGrid" class="tpl-groups"></div>
       </section>
       <section data-p="tasarim" hidden>
         <h2>Tasarım</h2>
@@ -177,15 +178,17 @@
   <dialog id="brandDlg">
     <form method="dialog" class="dlg">
       <header>
-        <h2>Marka &amp; logolar</h2>
+        <h2>Kurum &amp; marka</h2>
         <button value="close" class="ghost" aria-label="Kapat">✕</button>
       </header>
       <div class="dlg-body">
         <p class="note">Bu ayarlar tüm şablonlarda ortaktır. Ekipte herkesin aynı kimliği kullanması için
-          <b>Marka paketini dışa aktar</b> ile dosyayı paylaşın ya da kalıcı değişiklikleri <code>js/brand.js</code> dosyasına işleyin.</p>
+          <b>Kurum paketini dışa aktar</b> ile dosyayı paylaşın; başka bir fakülte için <b>Yeni kurum başlat</b> ya da kalıcı değişiklikleri <code>js/brand.js</code> dosyasına işleyin.</p>
         <div class="grid2">
           <label>Üniversite<input id="bUni" /></label>
           <label>Fakülte<input id="bFac" /></label>
+          <label>Kısa ad <small class="muted">(dosya adları, üst çubuk)</small><input id="bShort" placeholder="ör. İLEF" /></label>
+          <label>Sabit etiketler<input id="bTags" placeholder="#Üniversite #Fakülte" /></label>
           <label>Web adresi<input id="bWeb" /></label>
           <label>Sosyal medya hesabı<input id="bSoc" placeholder="@kullaniciadi" /></label>
         </div>
@@ -203,9 +206,10 @@
       </div>
       <footer>
         <button type="button" class="link" id="btnBrandReset">Varsayılana dön</button>
+        <button type="button" class="link" id="btnNewOrg">Yeni kurum başlat</button>
         <span class="grow"></span>
-        <label class="btnlike ghost">Marka paketini içe aktar<input type="file" id="fileBrand" accept=".json" hidden /></label>
-        <button type="button" class="ghost" id="btnBrandExport">Marka paketini dışa aktar</button>
+        <label class="btnlike ghost">Kurum paketini içe aktar<input type="file" id="fileBrand" accept=".json" hidden /></label>
+        <button type="button" class="ghost" id="btnBrandExport">Kurum paketini dışa aktar</button>
         <button value="close" class="primary">Tamam</button>
       </footer>
     </form>

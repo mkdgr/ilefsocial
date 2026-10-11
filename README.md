@@ -22,19 +22,18 @@ Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada
 
 ## İçerik türleri
 
-| Tür | Ne için |
+21 tür, şablon panelinde altı grupta (arama kutusuyla):
+
+| Grup | Türler |
 |---|---|
-| Duyuru | Dekanlık, bölüm ve genel duyurular |
-| Son tarih / Başvuru | Kayıt, sınav, staj, burs — o ayın takviminde son gün işaretli |
-| Rakamla duyuru | Burs miktarı, başarı puanı, kontenjan |
-| Etkinlik | Söyleşi, panel, gösterim, atölye — tarih kırmızı karede; türüne göre motif |
-| Haber | Fotoğraflı haber, etkinlik sonrası paylaşım |
-| Atama / Tebrik | Yeni görev, atama, tebrik, hoş geldiniz (kurumsal lacivert-altın ton) |
-| Ödül / Başarı | Büyük haber — kırmızı zemin, ışık huzmeleri |
-| Vefat / Anma | Renksiz, motifsiz, hareketsiz; fotoğraf siyah-beyaz |
-| Özel gün / Kutlama | Bayramlar, anma ve kutlama günleri |
-| Hazır afiş | Dışarıdan gelen afiş/banner kırpılmadan İLEF çerçevesine girer, tarih-saat-yer altta tekrarlanır |
-| Karusel | Kapak + en fazla 9 fotoğraf sayfası; tüm sayfalar tek tıkla indirilir |
+| Duyuru ve başvuru | Duyuru · Son tarih / Başvuru (dev tarih kartı ya da ay takvimi) · Rakamla duyuru · Staj / İş / Burs ilanı · Akademik takvim |
+| Etkinlik ve yayın | Etkinlik · Program / Ajanda (saat saat akış) · Geri sayım · Radyo / Podcast / Yayın · Hazır afiş |
+| Haber ve başarı | Haber · Karusel (kapak + 9 sayfa) · Ödül / Başarı (kırmızı zemin, seyrek) · Yayın / Kitap / Proje |
+| İnsanlar | Atama / Tebrik · Söz / Alıntı (mezun, öğrenci, konuk) |
+| Bilgi ve etkileşim | Adım adım / Rehber · Soru / Anket (story) · Tanıtım / Tercih |
+| Özel gün ve taziye | Özel gün / Kutlama · Vefat / Taziye — **siyah zemin**, beyaz yazı, yas kurdelesi, gri tonlamalı logo ve fotoğraf, hareketsiz |
+
+Akış biçimli alanlarda her satır `sol | başlık | not` yazılır (program: `14.00 | Panel | Salon 2`, takvim: `2026-11-09 | Ara sınavlar | 9–20 Kasım`, tanıtım: `Kontenjan | 82`).
 
 **Formatlar:** Gönderi 4:5 · Kare · Story 9:16 · Reels 9:16 · Yatay 16:9. Story/Reels güvenli alanları (üst %14, alt %20/%35, Reels sağ butonlar) korunur.
 
@@ -57,6 +56,17 @@ Canva’ya benzer bir çalışma düzeni:
 - **Telefonda:** menü alt sekme çubuğuna, paneller alttan açılan sayfaya, araç çubuğu ekranın altına iner.
 
 Çalışmalar tarayıcıda saklanır (claude.ai’de yayınlanan sürümde sayfa yenilenince sıfırlanır); **Dosya → Taslağı kaydet / Taslak aç** ile `.json` olarak saklanıp paylaşılabilir.
+
+## Başka fakülteler için
+
+Stüdyo kuruma bağlı değildir; ad, logolar, renk ve etiketler bir **kurum paketinden** gelir.
+
+1. **Dosya → Kurum & marka → Yeni kurum başlat.** Üniversite, fakülte, kısa ad (dosya adları ve üst çubuk), web, hesap ve sabit etiketleri yazın.
+2. **Logo kütüphanesi:** “Üniversite logosu” ve “Fakülte logosu” satırlarına SVG/PNG yükleyin; bölüm ve atölyeleri **Ekle** ile girip logolarını yükleyin.
+3. **Renkler:** *Ana renk* tüm vurguları (kare, tarih kartı, kırmızı zemin) belirler; yazı tipi ve yerleşim kuralları ortak kalır.
+4. **Kurum paketini dışa aktar** → `.json` dosyası o fakültenin ekibine verilir; **Kurum paketini içe aktar** ile açılır. Logolar paketin içindedir.
+
+Kalıcı kurulum için (ör. her fakülteye ayrı adres): `js/brand.js` içindeki `BRAND_DEFAULT` o kurumun bilgileriyle değiştirilir, logolar `tools/logo_donustur.py` ile eklenir. `kimlik.html` şu an İLEF’e özeldir; her kurum için kendi renk ve logo sayfası hazırlanmalıdır.
 
 ## Logo ekleme
 

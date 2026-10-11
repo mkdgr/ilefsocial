@@ -17,6 +17,8 @@ window.BRAND_DEFAULT = {
   faculty: 'İletişim Fakültesi',
   web: 'ilef.ankara.edu.tr',
   social: '@ilefsocial',
+  short: 'İLEF', // dosya adları, üst çubuk ve etiketlerde
+  hashtags: '#AnkaraÜniversitesi #İLEF', // paylaşım metnine her zaman eklenen etiketler
   colors: {
     red: '#ED1C24', // ilef logosu
     redDeep: '#D3131A', // kırmızı zemin (beyaz yazı kontrastı için bir ton koyu)
@@ -57,7 +59,7 @@ window.BRAND_DEFAULT = {
 };
 
 window.COLOR_LABELS = {
-  red: 'ilef kırmızısı', redDeep: 'Kırmızı zemin', ink: 'Metin', grey: 'İkincil metin', line: 'Motif çizgisi',
+  red: 'Ana renk (ilef kırmızısı)', redDeep: 'Kırmızı zemin', ink: 'Metin', grey: 'İkincil metin', line: 'Motif çizgisi',
   mist: 'Sis (zemin tonu)', navy: 'Ankara Ü. laciverti', gold: 'Ankara Ü. altını',
 };
 

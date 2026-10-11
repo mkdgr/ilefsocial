@@ -64,7 +64,7 @@
       const longest = t.split(/\s+/).reduce((m, w) => Math.max(m, ctx.measureText(w).width), 0);
       const fits = lines.length * lh <= o.maxH && (!o.maxLines || lines.length <= o.maxLines) && longest <= o.maxW;
       if (fits || size <= o.min) {
-        let maxLines = Math.max(1, Math.floor(o.maxH / lh));
+        let maxLines = Math.max(1, Math.floor(o.maxH / lh + 1e-6));
         if (o.maxLines) maxLines = Math.min(maxLines, o.maxLines);
         if (lines.length > maxLines) {
           lines = lines.slice(0, maxLines);

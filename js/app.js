@@ -27,6 +27,8 @@
       faculty: s.faculty != null ? s.faculty : def.faculty,
       web: s.web != null ? s.web : def.web,
       social: s.social != null ? s.social : def.social,
+      short: s.short != null ? s.short : def.short,
+      hashtags: s.hashtags != null ? s.hashtags : def.hashtags,
       colors: Object.assign(def.colors, s.colors || {}),
       removed: [...removed],
     });
@@ -777,6 +779,14 @@
   function buildTemplates() {
     const g = $('#tplGrid');
     g.innerHTML = '';
+    const cats = Studio.categories || [['', '']];
+    const grids = {};
+    cats.forEach(([id, name]) => {
+      if (!TPLS.some((t) => (t.cat || '') === id)) return;
+      const h = document.createElement('h4'); h.className = 'tpl-cat'; h.textContent = name; h.dataset.cat = id;
+      const gr = document.createElement('div'); gr.className = 'tpl-grid'; gr.dataset.cat = id;
+      g.append(h, gr); grids[id] = gr;
+    });
     TPLS.forEach((t) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -785,8 +795,15 @@
       b.setAttribute('aria-pressed', t.id === state.tplId);
       b.innerHTML = `<canvas width="240" height="240" data-id="${t.id}"></canvas><b>${t.name}</b>`;
       b.onclick = () => { if (state.tplId !== t.id) { select(null); state.tplId = t.id; state.slide = 0; refresh(); } };
-      g.appendChild(b);
+      b.dataset.q = (t.name + ' ' + t.desc).toLocaleLowerCase('tr-TR');
+      (grids[t.cat || ''] || grids[Object.keys(grids)[0]] || g).appendChild(b);
     });
+    // Şablon arama
+    $('#tplSearch').oninput = (e) => {
+      const q = e.target.value.trim().toLocaleLowerCase('tr-TR');
+      g.querySelectorAll('.tpl').forEach((b) => { b.hidden = !!q && !b.dataset.q.includes(q); });
+      g.querySelectorAll('.tpl-grid').forEach((gr) => { const any = [...gr.children].some((b) => !b.hidden); gr.hidden = !any; gr.previousElementSibling.hidden = !any; });
+    };
     const p = document.createElement('p');
     p.className = 'tpl-desc';
     p.id = 'tplDesc';
@@ -807,11 +824,12 @@
     });
   }
 
+  const facultyLogo = () => brand.logos.filter((l) => l.group === 'ana').slice(-1)[0];
   const logoSrc = (l) => { const src = l.light || l.dark; return src ? (window.LOGO_DATA && window.LOGO_DATA[src]) || src : null; };
   function buildUnits() {
     const g = $('#unitGrid');
     if (!unitOf()) state.unitId = '';
-    const ilef = brand.logos.find((l) => l.id === 'ilef');
+    const ilef = facultyLogo();
     let html = `<button type="button" data-u="" aria-pressed="${!state.unitId}">${ilef && logoSrc(ilef) ? `<img src="${logoSrc(ilef)}" alt="" />` : ''}Yalnızca fakülte</button>`;
     [['bolum', 'Bölümler'], ['atolye', 'Atölye / birimler']].forEach(([grp, n]) => {
       const items = brand.logos.filter((l) => l.group === grp);
@@ -925,6 +943,7 @@
     void autoLay;
     $('#layoutWrap').hidden = lays.length < 2;
     $('#chkBadge').checked = !!state.badge;
+    $('#chkBadge').closest('label').hidden = !!tpl.mono || !brand.logos.some((l) => l.group === 'rozet' && (l.light || l.dark));
     buildUnits();
     buildSlides();
     buildQuick();
@@ -981,7 +1000,8 @@
 
   // ------------------------------------------------------------ Dışa aktarma
   const today = () => new Date().toISOString().slice(0, 10);
-  const fileBase = (tpl, fmt) => `ilef-${tpl.id}-${fmt.id}-${today()}`;
+  const slug = (x) => String(x || 'gorsel').toLocaleLowerCase('tr-TR').replace(/[çğıöşü]/g, (c) => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' }[c])).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'gorsel';
+  const fileBase = (tpl, fmt) => `${slug(brand.short)}-${tpl.id}-${fmt.id}-${today()}`;
   // claude.ai'de yayınlandığında indirmeler platformun "downloads" yeteneğiyle yapılır
   let dlCap;
   const dlReady = (window.claude && window.claude.use) ? window.claude.use('downloads').then((d) => (dlCap = d)).catch(() => (dlCap = null)) : Promise.resolve(null);
@@ -1130,11 +1150,18 @@
   // ------------------------------------------------------------ Marka penceresi
   const dlg = $('#brandDlg');
   $('#btnBrand').onclick = () => { buildBrandDlg(); dlg.showModal(); };
-  dlg.addEventListener('close', () => { preloadLogos(); saveBrand(); buildUnits(); scheduleThumbs(); scheduleRender(); });
+  dlg.addEventListener('close', () => { preloadLogos(); saveBrand(); applyChrome(); refresh(); scheduleThumbs(); });
+  // Üst çubuk ve sekme adı kurumdan gelir
+  function applyChrome() {
+    const fl = facultyLogo(), src = fl && logoSrc(fl), im = document.querySelector('.brandmark img');
+    im.hidden = !src; if (src) im.src = src;
+    document.querySelector('.brandmark strong').textContent = `${brand.short ? brand.short + ' ' : ''}Görsel Stüdyo`;
+    document.title = `${brand.short ? brand.short + ' ' : ''}Görsel Stüdyo`;
+  }
 
   const GROUP_NAMES = { ana: 'Ana imza', rozet: 'Dönem logosu', bolum: 'Bölüm', atolye: 'Atölye / birim' };
   function buildBrandDlg() {
-    [['#bUni', 'university'], ['#bFac', 'faculty'], ['#bWeb', 'web'], ['#bSoc', 'social']].forEach(([s, k]) => {
+    [['#bUni', 'university'], ['#bFac', 'faculty'], ['#bShort', 'short'], ['#bWeb', 'web'], ['#bSoc', 'social'], ['#bTags', 'hashtags']].forEach(([s, k]) => {
       const el = $(s);
       el.value = brand[k] || '';
       el.oninput = () => { brand[k] = el.value; scheduleRender(); };
@@ -1188,14 +1215,23 @@
       cl.appendChild(lab);
     });
   }
+  // Başka bir fakülte/kurum için boş kimlik: logolar ve adlar sıfırdan girilir
+  $('#btnNewOrg').onclick = () => {
+    if (!ask('Mevcut kurum ayarları kapatılıp boş bir kurum kimliği başlatılsın mı? (Önce “Kurum paketini dışa aktar” ile yedekleyebilirsiniz.)')) return;
+    brand = mergeBrand({ university: '', faculty: '', short: '', web: '', social: '', hashtags: '', removed: BRAND_DEFAULT.logos.map((l) => l.id),
+      logos: [{ id: 'kurum-universite', name: 'Üniversite logosu', group: 'ana', dark: null, light: null }, { id: 'kurum-fakulte', name: 'Fakülte logosu', group: 'ana', dark: null, light: null }] });
+    state.unitId = ''; state.badge = false;
+    saveBrand(); buildBrandDlg(); applyChrome();
+    status('Boş kurum kimliği başlatıldı: adları yazın, logoları yükleyin, ana rengi seçin.');
+  };
   $('#btnBrandReset').onclick = () => {
     if (!ask('Tüm marka ayarları ve yüklenen logolar varsayılana dönsün mü?')) return;
     ls.del(BRAND_KEY);
     brand = mergeBrand(null);
-    buildBrandDlg(); loadFonts();
+    buildBrandDlg(); loadFonts(); applyChrome();
   };
   $('#btnBrandExport').onclick = () => {
-    download(new Blob([JSON.stringify(Object.assign({ tur: 'ilef-studyo-marka' }, brand), null, 1)], { type: 'application/json' }), `ilef-marka-paketi-${today()}.json`);
+    download(new Blob([JSON.stringify(Object.assign({ tur: 'ilef-studyo-marka' }, brand), null, 1)], { type: 'application/json' }), `${slug(brand.short)}-kurum-paketi-${today()}.json`);
   };
   $('#fileBrand').onchange = async (e) => {
     const file = e.target.files[0];
@@ -1205,8 +1241,8 @@
       const b = JSON.parse(await readFile(file, true));
       if (b.tur !== 'ilef-studyo-marka') throw new Error();
       brand = mergeBrand(b);
-      saveBrand(); buildBrandDlg(); loadFonts();
-    } catch (err)  { tell('Bu dosya bir marka paketi değil.'); }
+      saveBrand(); buildBrandDlg(); loadFonts(); applyChrome();
+    } catch (err)  { tell('Bu dosya bir kurum paketi değil.'); }
   };
 
   // ------------------------------------------------------------ Kontroller (araştırma temelli)
@@ -1309,7 +1345,7 @@
 
   // ------------------------------------------------------------ Paylaşım metni
   const camel = (s) => '#' + String(s).replace(/[’'".,:;!?()–-]/g, ' ').split(/\s+/).filter(Boolean).map((w) => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1)).join('');
-  const TOPIC = { duyuru: 'Duyuru', sontarih: 'Duyuru', rakam: 'Burs', etkinlik: 'Etkinlik', haber: 'İLEFHaber', kisi: '', odul: 'Başarı', vefat: '', ozelgun: '', afis: 'Etkinlik', karusel: 'İLEFHaber' };
+  const TOPIC = { duyuru: 'Duyuru', sontarih: 'Duyuru', rakam: 'Burs', etkinlik: 'Etkinlik', haber: 'Haber', kisi: '', odul: 'Başarı', vefat: '', ozelgun: '', afis: 'Etkinlik', karusel: 'Haber', kariyer: 'Kariyer', takvim: 'AkademikTakvim', program: 'Etkinlik', gerisayim: '', podcast: 'Podcast', yayin: 'YeniYayın', alinti: '', adimlar: '', anket: '', tanitim: 'Tercih' };
   function shareDraft() {
     const tpl = tplOf(state.tplId), d = dataOf(tpl), unit = unitOf();
     const j = (...a) => a.filter((x) => x && String(x).trim()).join(' · ');
@@ -1326,16 +1362,26 @@
       case 'odul': cap = `🏆 ${oneLine(d.baslik)}\n\n${d.etiket ? d.etiket + ' · ' : ''}${d.ozet || ''}`; break;
       case 'vefat': cap = `${d.etiket}\n\n${d.ad}${d.yillar ? ' (' + d.yillar + ')' : ''}\n\n${d.metin || ''}`; break;
       case 'ozelgun': cap = `${oneLine(d.baslik)}${d.metin ? '\n\n' + d.metin : ''}`; break;
+      case 'kariyer': cap = `💼 ${d.etiket}: ${oneLine(d.pozisyon)}${d.kurum ? ' — ' + d.kurum : ''}\n\n${String(d.nitelikler || '').split('\n').filter(Boolean).map((m) => '• ' + m).join('\n')}${d.sonGun ? '\n\nSon başvuru: ' + fd(d.sonGun, true) : ''}${d.link ? '\n🔗 ' + d.link : ''}`; break;
+      case 'takvim': cap = `🗓 ${oneLine(d.baslik)}\n\n${String(d.satirlar || '').split('\n').filter(Boolean).map((r) => { const p = r.split(/\s*\|\s*/); return '• ' + (window.D.parseDate(p[0]) ? fd(p[0]) : p[0]) + ' — ' + j(p[1], p[2]); }).join('\n')}${d.link ? '\n\n🔗 ' + d.link : ''}`; break;
+      case 'program': cap = `${d.etiket}: ${oneLine(d.baslik)}\n🗓 ${fd(d.tarih, true)}\n📍 ${d.yer || ''}\n\n${String(d.akis || '').split('\n').filter(Boolean).map((r) => r.split(/\s*\|\s*/).filter(Boolean).join(' · ')).join('\n')}`; break;
+      case 'gerisayim': cap = `⏳ ${oneLine(d.baslik)}: ${d.sayi ? d.sayi + ' ' + (d.birim || '') : ''}\n🗓 ${fd(d.tarih, true)}${d.yer ? '\n📍 ' + d.yer : ''}`; break;
+      case 'podcast': cap = `🎧 ${d.etiket}: ${oneLine(d.program)}\n${oneLine(d.bolum)}\n🗓 ${j(fd(d.tarih, true), d.saat)}\n▶ ${d.platform || ''}`; break;
+      case 'yayin': cap = `📘 ${d.etiket}: ${oneLine(d.baslik)}\n${j(d.yazar, d.yayinci)}${d.link ? '\n🔗 ' + d.link : ''}`; break;
+      case 'alinti': cap = `“${oneLine(d.soz)}”\n— ${j(d.ad, d.unvan)}`; break;
+      case 'adimlar': cap = `${oneLine(d.baslik)}\n\n${String(d.adimlar || '').split('\n').filter(Boolean).map((m, i) => (i + 1) + '. ' + m).join('\n')}${d.link ? '\n\n🔗 ' + d.link : ''}`; break;
+      case 'anket': cap = `${oneLine(d.soru)}\n\n${String(d.secenekler || '').split('\n').filter(Boolean).map((m, i) => String.fromCharCode(65 + i) + ') ' + m).join('\n')}\n\n${d.not || ''}`; break;
+      case 'tanitim': cap = `${d.etiket}: ${oneLine(d.baslik)}\n\n${d.metin || ''}\n${String(d.bilgiler || '').split('\n').filter(Boolean).map((r) => '• ' + r.split(/\s*\|\s*/).join(': ')).join('\n')}`; break;
       case 'afis': cap = `${d.baslik || d.etiket}\n🗓 ${j(fd(d.tarih, true), d.saat)}\n📍 ${d.yer || ''}\n\n[Afişteki ayrıntıları buraya yazın: konuşmacılar, program, kayıt bağlantısı.]`; break;
       default: cap = textFields(tpl, d);
     }
     const title = oneLine(d.baslik || d.ad || d.etiket || '');
     const hasImg = tpl.fields.some((f) => (f.type === 'image' && d[f.key]) || (f.type === 'images' && d[f.key] && d[f.key].length));
     const when = [d.tarih ? fd(d.tarih) : '', d.saat, d.yer].filter(Boolean);
-    alt = `${tpl.name} görseli. ${title ? `“${title}” yazıyor. ` : ''}${when.join(', ')}${when.length ? '. ' : ''}${hasImg ? '[Fotoğrafta kim/ne görünüyor, kısaca yazın.] ' : ''}Ankara Üniversitesi ve İletişim Fakültesi${unit ? ', ' + unit.name : ''} logolu tasarım.`;
-    const tags = ['#AnkaraÜniversitesi', '#İLEF'];
+    alt = `${tpl.name} görseli. ${title ? `“${title}” yazıyor. ` : ''}${when.join(', ')}${when.length ? '. ' : ''}${hasImg ? '[Fotoğrafta kim/ne görünüyor, kısaca yazın.] ' : ''}${[brand.university, brand.faculty].filter(Boolean).join(' ')}${unit ? ', ' + unit.name : ''} logolu tasarım.`;
+    const tags = String(brand.hashtags || '').split(/[\s,]+/).filter(Boolean).map((t) => (t.startsWith('#') ? t : '#' + t));
     if (unit) tags.push(camel(unit.name.replace(/Bölümü$/, '').split('·')[0]));
-    if (TOPIC[tpl.id]) tags.push('#' + TOPIC[tpl.id]);
+    if (TOPIC[tpl.id]) tags.push('#' + (TOPIC[tpl.id] === 'Haber' && brand.short ? camel(brand.short).slice(1) + 'Haber' : TOPIC[tpl.id]));
     if (tpl.id === 'etkinlik' && d.tur) tags.push(camel(d.tur));
     if (tpl.id === 'vefat') tags.splice(2);
     $('#shCaption').value = cap.replace(/\n{3,}/g, '\n\n').trim();
@@ -1362,6 +1408,7 @@
   // ------------------------------------------------------------ Başlat
   preloadLogos();
   buildTemplates();
+  applyChrome();
   openPanel(curPanel);
   refresh();
   commit();
