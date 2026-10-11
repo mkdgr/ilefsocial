@@ -309,3 +309,31 @@ dialog::backdrop { background: rgba(8,16,32,.5); }
   .sel .nw, .sel .ne { top: -10px; } .sel .sw, .sel .se { bottom: -10px; }
 }
 .text-ed:focus-visible { outline: 2px solid var(--sel); }
+
+/* Yerleşim seçici */
+.lay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lay-grid.row { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 6px; }
+.lay-grid.row .lay-card { flex: 0 0 150px; }
+.lay-card { border: 0; background: none; padding: 0; display: grid; gap: 3px; text-align: left; align-content: start; }
+.lay-card canvas { width: 100%; height: auto; display: block; border-radius: 6px; box-shadow: 0 0 0 1px rgba(10,20,40,.1); background: #f1f2f5; transition: box-shadow .12s; }
+.lay-card:hover canvas { box-shadow: 0 0 0 2px #c5cad6; }
+.lay-card[aria-pressed="true"] canvas { box-shadow: 0 0 0 3px var(--sel); }
+.lay-card b { font-size: 13px; font-weight: 600; margin-top: 4px; }
+.lay-card small { font-size: 11.5px; color: var(--muted); font-weight: 400; line-height: 1.3; }
+.lay-card[data-need] canvas { opacity: .45; }
+.lay-pop { position: absolute; top: 60px; left: 12px; right: 12px; max-width: 760px; z-index: 25; background: #fff; border-radius: 12px; box-shadow: 0 16px 48px rgba(10,20,40,.22), 0 0 0 1px rgba(10,20,40,.06); padding: 12px 14px 10px; }
+.lay-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+.lay-pop-head button { padding: 4px 9px; border: 0; }
+.ctxbar .lay-btn { font-weight: 600; }
+.ctxbar .lay-ico { color: var(--sel); font-weight: 400; }
+.ctxbar .seg, .seg2 { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.ctxbar .seg button { border: 0; border-radius: 0; padding: 6px 12px; font-weight: 500; background: #fff; }
+.ctxbar .seg button + button, .seg2 button + button { border-left: 1px solid var(--line); }
+.ctxbar .seg button[aria-pressed="true"], .seg2 button[aria-pressed="true"] { background: #f4edff; color: #5a18c9; }
+.seg2 { display: grid !important; grid-template-columns: 1fr 1fr; gap: 0 !important; }
+.seg2 button { border: 0; border-radius: 0; display: grid; justify-items: start; gap: 1px; padding: 8px 10px; }
+.seg2 small { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+@media (max-width: 900px) {
+  .lay-pop { position: fixed; top: auto; left: 0; right: 0; bottom: calc(var(--tabs) + 56px); max-width: none; border-radius: 16px 16px 0 0; z-index: 33; }
+  .lay-grid.row .lay-card { flex-basis: 118px; }
+}

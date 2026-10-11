@@ -47,7 +47,9 @@ Canva’ya benzer bir çalışma düzeni:
 - **Sol menü:** Şablonlar · Tasarım (yerleşim, zemin, mesh tonu, motif, 80. yıl) · Metin (tüm alanlar, silinen öğeleri geri getirme) · Yüklemeler · Birim · Yayın (kontroller, paylaşım metni, ızgara önizlemesi). Simgeye tekrar basınca panel kapanır.
 - **Üst çubuk:** Dosya (taslak kaydet/aç, örnek içerik, konumları sıfırla, marka), **Yeniden boyutlandır** (5 format), geri al / yinele, oynat ve **İndir** (PNG, tüm formatlar/sayfalar, MP4 video).
 - **Tuval:** öğeye tıklayın → seçilir, üstte o öğeye özel araç çubuğu açılır. Yazılar **sürüklenir** (ortaya ve kenar boşluklarına mıknatıslanır), **köşe tutamaçlarıyla büyür**; **çift tıklayınca** (ya da seçiliyken bir kez daha tıklayınca) yerinde yazılır.
-- **Araç çubuğu:** boyut (A− / A+), renk (yalnızca marka paleti), konumu sıfırla, sil. Fotoğrafta değiştir / kaldır / kadraj; fotoğraf seçiliyken sürüklemek kadrajı kaydırır. Tarihte takvim.
+- **Araç çubuğu:** boyut (A− / A+), renk (yalnızca marka paleti), konumu sıfırla, sil. Tarihte takvim.
+- **Fotoğraf:** *Doldur* (kutuyu kaplar, taşan kısım kırpılır) ya da *Sığdır* (fotoğrafın tamamı görünür), yakınlaştırma (%100–300), *Ortala*; fotoğraf seçiliyken sürüklemek kadrajı kaydırır. *Ayrıntı* ile odak sürgüleri.
+- **Yerleşim:** “Yerleşim” düğmesi (ya da Tasarım paneli) her seçeneği o anki içerikle küçük önizleme olarak gösterir; fotoğraf eklenince öneriler kendiliğinden açılır. Fotoğraf gerektiren yerleşimler fotoğraf yokken soluk görünür.
 - **Yüklemeler:** “Dosya yükle” ya da fotoğrafı doğrudan tuvale sürükleyip bırakın; bırakılan fotoğraf alanına yerleşir. Karuselde alttaki **+** yeni sayfa ekler.
 - **Alt şerit:** sayfa küçük resimleri, yakınlaştırma (Ctrl + tekerlek, Ctrl + / Ctrl − / Ctrl 0).
 - **Kısayollar:** Ctrl+Z / Ctrl+Shift+Z, Delete (sil), Enter (düzenle), ok tuşları (Shift ile 10 px), Esc.

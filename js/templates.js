@@ -429,7 +429,8 @@
   };
 
   // Fotoğraf (dikdörtgen, temiz)
-  function drawPhoto(ctx, env, ph, x, y, w, h) {
+  // ph.fit: 'cover' (doldur) | 'contain' (sığdır); ph.z: yakınlaştırma; ph.fx/fy: odak (0..1)
+  function drawPhoto(ctx, env, ph, x, y, w, h, noBg) {
     if (ph.key && ctx === env.ctx) hit(env, ph.key, x, y, w, h);
     const p = D.prog(env.t, 0.15, 1.0);
     const z = isFinite(env.t) && !env.calm ? 1.06 - 0.06 * D.clamp(env.t / 8, 0, 1) : 1;
@@ -437,7 +438,12 @@
     ctx.globalAlpha *= p;
     ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
     if (env.pal.mono) ctx.filter = 'grayscale(1)';
-    D.cover(ctx, ph.img, x, y, w, h, ph.fx, ph.fy, z);
+    const iw = ph.img.naturalWidth || ph.img.width, ih = ph.img.naturalHeight || ph.img.height;
+    const contain = ph.fit === 'contain';
+    const s = (contain ? Math.min(w / iw, h / ih) : Math.max(w / iw, h / ih)) * (ph.z || 1) * z;
+    const dw = iw * s, dh = ih * s;
+    if (contain && !noBg) { ctx.fillStyle = env.pal.dark ? '#141414' : '#EFEDE8'; ctx.fillRect(x, y, w, h); }
+    ctx.drawImage(ph.img, x + (w - dw) * D.clamp(ph.fx != null ? ph.fx : 0.5, 0, 1), y + (h - dh) * D.clamp(ph.fy != null ? ph.fy : 0.5, 0, 1), dw, dh);
     ctx.filter = 'none';
     ctx.restore();
   }
@@ -448,7 +454,7 @@
     const c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
     const x2 = c.getContext('2d');
-    drawPhoto(x2, env, ph, 0, 0, c.width, c.height);
+    drawPhoto(x2, env, ph, 0, 0, c.width, c.height, true);
     x2.globalCompositeOperation = 'destination-in';
     const mask = (x0, y0, x1, y1, from) => {
       const g = x2.createLinearGradient(x0, y0, x1, y1);
@@ -602,7 +608,7 @@
 
   // ---------------------------------------------------------------- yardımcılar
   const img = (env, src) => (src ? env.getImage(src) : null);
-  const photoOf = (env, d, key) => { const im = img(env, d[key]); return im ? { img: im, fx: d[key + '_fx'], fy: d[key + '_fy'], key } : null; };
+  const photoOf = (env, d, key) => { const im = img(env, d[key]); return im ? { img: im, fx: d[key + '_fx'], fy: d[key + '_fy'], fit: d[key + '_fit'], z: d[key + '_z'], key } : null; };
   const partnersOf = (env, d) => (Array.isArray(d.ortaklar) ? d.ortaklar.map((s) => img(env, s)) : []);
   const PARTNER_FIELDS = [
     { key: 'ortaklar', label: 'İş birliği / destekçi logoları (en fazla 4)', type: 'logos' },

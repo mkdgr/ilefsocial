@@ -78,7 +78,7 @@
       </section>
       <section data-p="tasarim" hidden>
         <h2>Tasarım</h2>
-        <div id="layoutWrap"><small class="sublabel">Yerleşim</small><div id="layoutSeg" class="chips"></div></div>
+        <div id="layoutWrap"><small class="sublabel">Yerleşim <span class="muted">— içeriğinizle önizleme</span></small><div id="layoutSeg" class="lay-grid"></div></div>
         <small class="sublabel">Zemin</small>
         <div id="groundSeg" class="chips"></div>
         <small class="sublabel">Renk tonu (mesh)</small>
@@ -141,6 +141,10 @@
 
     <section class="work">
       <div class="ctxbar" id="ctxBar" role="toolbar" aria-label="Seçili öğe araçları"></div>
+      <div class="lay-pop" id="layPop" hidden role="dialog" aria-label="Yerleşim seç">
+        <div class="lay-pop-head"><b id="layPopTitle">Yerleşim</b><button type="button" class="ghost" id="layPopClose" aria-label="Kapat">✕</button></div>
+        <div class="lay-grid row" id="layPopGrid"></div>
+      </div>
       <div class="stage-canvas" id="stageBox">
         <div class="canvas-wrap" id="cvWrap">
           <canvas id="cv" width="1080" height="1350"></canvas>

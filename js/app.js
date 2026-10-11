@@ -45,7 +45,7 @@
   // ------------------------------------------------------------ Durum
   const defaults = (tpl) => {
     const d = {};
-    tpl.fields.forEach((f) => { d[f.key] = f.def != null ? f.def : f.type === 'logos' || f.type === 'images' ? [] : ''; if (f.type === 'image') { d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; } });
+    tpl.fields.forEach((f) => { d[f.key] = f.def != null ? f.def : f.type === 'logos' || f.type === 'images' ? [] : ''; if (f.type === 'image') { d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; d[f.key + '_fit'] = 'cover'; d[f.key + '_z'] = 1; } });
     return d;
   };
   let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, layouts: {}, data: {}, ov: {} }, ls.get(STATE_KEY) || {});
@@ -133,10 +133,10 @@
   const cv = $('#cv');
   const ctx = cv.getContext('2d');
   let playing = null; // { start, dur, rec }
-  function renderTo(c, fmt, t, tpl = tplOf(state.tplId), data, slide, hits) {
+  function renderTo(c, fmt, t, tpl = tplOf(state.tplId), data, slide, hits, lay) {
     if (c.width !== fmt.w) c.width = fmt.w;
     if (c.height !== fmt.h) c.height = fmt.h;
-    return Studio.render(c.getContext('2d'), { tpl, hits, data: data || dataOf(tpl), layout: state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage, ov: ovFor(tpl.id, fmt.id), editing: c === cv ? textKey : null });
+    return Studio.render(c.getContext('2d'), { tpl, hits, data: data || dataOf(tpl), layout: lay || state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage, ov: ovFor(tpl.id, fmt.id), editing: c === cv ? textKey : null });
   }
   // Önizleme canvas'ını sahne kutusuna sığdır
   const stageBox = $('#stageBox');
@@ -320,8 +320,8 @@
       const r = snapMove(h0, o0, dx, dy, p.k);
       setOvLive(drag.key, r);
     } else if (drag.mode === 'pan') {
-      const d = dataOf(tplOf(state.tplId)), cl = (v) => Math.max(0, Math.min(1, v));
-      d[drag.key + '_fx'] = cl(drag.f0.x - dx / h0.w); d[drag.key + '_fy'] = cl(drag.f0.y - dy / h0.h);
+      const d = dataOf(tplOf(state.tplId)), cl = (v) => Math.max(0, Math.min(1, v)), m = photoMetrics(drag.key, h0);
+      if (m) { if (Math.abs(m.ex) > 1) d[drag.key + '_fx'] = cl(drag.f0.x + dx / m.ex); if (Math.abs(m.ey) > 1) d[drag.key + '_fy'] = cl(drag.f0.y + dy / m.ey); }
       scheduleRender();
     } else if (drag.mode === 'resize') {
       const c = drag.corner, s0 = o0.s || 1;
@@ -334,6 +334,14 @@
       setOvLive(drag.key, { s, dx: (o0.dx || 0) + nx - h0.x, dy: (o0.dy || 0) + ny - h0.y });
     }
   });
+  // Fotoğrafın kutuya göre taşan/eksik kalan payı (kadraj kaydırma için)
+  function photoMetrics(key, box) {
+    const d = dataOf(tplOf(state.tplId)), im = d[key] && getImage(d[key]);
+    if (!im) return null;
+    const iw = im.naturalWidth, ih = im.naturalHeight, contain = d[key + '_fit'] === 'contain';
+    const s = (contain ? Math.min(box.w / iw, box.h / ih) : Math.max(box.w / iw, box.h / ih)) * (d[key + '_z'] || 1);
+    return { ex: box.w - iw * s, ey: box.h - ih * s };
+  }
   // sürükleme sırasında geçmişe tek tek yazmadan güncelle
   function setOvLive(key, patch) { holdHistory = true; setOv(key, patch); holdHistory = false; }
   function endDrag(e) {
@@ -427,10 +435,13 @@
     if (f.type === 'image') {
       body.innerHTML = `${d[key] ? `<img class="thumb" src="${d[key]}" alt="" />` : ''}
         <div class="row"><button type="button" data-pick>${d[key] ? 'Fotoğrafı değiştir' : 'Fotoğraf seç'}</button>${d[key] ? '<button type="button" class="link" data-rm>Kaldır</button>' : ''}</div>
-        ${d[key] && (key + '_fx') in d ? `<div class="row">Yatay odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fx']}" data-k="${key}_fx" /></div><div class="row">Dikey odak <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fy']}" data-k="${key}_fy" /></div><small class="muted">İpucu: fotoğraf seçiliyken sürükleyerek de kadrajı kaydırabilirsiniz.</small>` : ''}`;
+        ${d[key] && (key + '_fx') in d ? `<div class="row seg2" role="group" aria-label="Yerleştirme"><button type="button" data-fit="cover" aria-pressed="${d[key + '_fit'] !== 'contain'}">Doldur <small>kırparak kaplar</small></button><button type="button" data-fit="contain" aria-pressed="${d[key + '_fit'] === 'contain'}">Sığdır <small>tamamı görünür</small></button></div>
+          <div class="row">Yakınlaştır <input type="range" min="1" max="3" step="0.01" value="${d[key + '_z'] || 1}" data-k="${key}_z" /></div>
+          <div class="row">Yatay <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fx']}" data-k="${key}_fx" /></div><div class="row">Dikey <input type="range" min="0" max="1" step="0.01" value="${d[key + '_fy']}" data-k="${key}_fy" /></div><small class="muted">İpucu: fotoğraf seçiliyken tuvalde sürükleyerek de kadrajı kaydırabilirsiniz.</small>` : ''}`;
       body.querySelector('[data-pick]').onclick = () => pickPhoto(key);
       const rm = body.querySelector('[data-rm]'); if (rm) rm.onclick = () => { d[key] = ''; saveState(); closeEditor(); refresh(); };
-      body.querySelectorAll('input[type=range]').forEach((r) => { r.oninput = () => setVal(r.dataset.k, +r.value); });
+      body.querySelectorAll('input[type=range]').forEach((r) => { r.oninput = () => { setVal(r.dataset.k, +r.value); buildCtx(); }; });
+      body.querySelectorAll('[data-fit]').forEach((b) => { b.onclick = () => { setVal(key + '_fit', b.dataset.fit); openEditor(key); buildCtx(); }; });
     } else {
       let inp;
       if (f.type === 'textarea') { inp = document.createElement('textarea'); inp.rows = Math.max(2, f.rows || 3); }
@@ -456,6 +467,7 @@
   document.addEventListener('pointerdown', (e) => {
     if (edKey && !ed.contains(e.target) && !hitLayer.contains(e.target) && !$('#ctxBar').contains(e.target)) closeEditor();
     if (!e.target.closest('.menu')) closeMenus();
+    if (!layPop.hidden && !layPop.contains(e.target) && !e.target.closest('.lay-btn')) layPop.hidden = true;
   });
 
   // ------------------------------------------------------------ Bağlam araç çubuğu (seçime göre değişir)
@@ -483,25 +495,36 @@
       }
       const lays = tpl.layouts || ['kutu'];
       if (lays.length > 1) {
-        const autoLay = tpl.layoutOf ? tpl.layoutOf(d) : 'kutu';
-        const s = add(`<select title="Yerleşim" aria-label="Yerleşim">${[['oto', `Yerleşim: otomatik (${LAYOUTS[autoLay]})`]].concat(lays.map((k) => [k, LAYOUTS[k]])).map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('')}</select>`);
-        s.value = state.layouts[tpl.id] || 'oto';
-        s.onchange = () => { state.layouts[tpl.id] = s.value; refresh(); };
+        layBtn();
         sep();
       }
       btn('▶ Animasyon', () => { if (!playing) animate(4.5); });
       add('<span class="hint">Düzenlemek için görseldeki bir öğeye tıklayın.</span>');
       return;
     }
+    function layBtn() {
+      const cur = state.layouts[tpl.id] || 'oto', auto = tpl.layoutOf ? tpl.layoutOf(d) : 'kutu';
+      btn(`<b class="lay-ico">▦</b> Yerleşim: ${esc(cur === 'oto' ? LAYOUTS[auto] : LAYOUTS[cur])} ▾`, () => toggleLayPop(), 'lay-btn', 'Yerleşimi önizleyerek seçin');
+    }
     const f = fieldOf(selKey), h = merged.get(selKey) || {}, ov = curOv(selKey);
     if (!f) return;
     add(`<span class="tag">${esc(shortLabel(f))}</span>`);
     if (f.type === 'image') {
       btn(d[selKey] ? 'Değiştir' : 'Fotoğraf seç', () => pickPhoto(selKey));
-      if (d[selKey]) {
-        if ((selKey + '_fx') in d) btn('Kadraj', () => openEditor(selKey), '', 'Odak noktası');
-        btn('Kaldır', () => { d[selKey] = ''; saveState(); select(null); refresh(); }, 'danger');
-        if ((selKey + '_fx') in d) add('<span class="hint">Seçiliyken sürükleyerek kadrajı kaydırın.</span>');
+      if (d[selKey] && (selKey + '_fx') in d) {
+        const k = selKey, fit = d[k + '_fit'] === 'contain' ? 'contain' : 'cover';
+        sep();
+        const seg = add(`<span class="seg" role="group" aria-label="Yerleştirme"><button type="button" data-fit="cover" aria-pressed="${fit === 'cover'}" title="Kutuyu kaplar, taşan kısım kırpılır">Doldur</button><button type="button" data-fit="contain" aria-pressed="${fit === 'contain'}" title="Fotoğrafın tamamı görünür">Sığdır</button></span>`);
+        seg.querySelectorAll('[data-fit]').forEach((b) => { b.onclick = () => { d[k + '_fit'] = b.dataset.fit; saveState(); scheduleRender(); buildCtx(); }; });
+        const z = d[k + '_z'] || 1;
+        const zr = add(`<span class="size" title="Yakınlaştır"><button type="button" aria-label="Uzaklaştır">−</button><span>%${Math.round(z * 100)}</span><button type="button" aria-label="Yakınlaştır">+</button></span>`);
+        const zs = (dir) => { d[k + '_z'] = Math.max(1, Math.min(3, Math.round((z + dir * 0.1) * 10) / 10)); saveState(); scheduleRender(); buildCtx(); };
+        zr.children[0].onclick = () => zs(-1); zr.children[2].onclick = () => zs(1);
+        btn('⌖ Ortala', () => { d[k + '_fx'] = 0.5; d[k + '_fy'] = 0.5; d[k + '_z'] = 1; saveState(); scheduleRender(); buildCtx(); }, '', 'Kadrajı ve yakınlaştırmayı sıfırla');
+        btn('Ayrıntı', () => openEditor(k), '', 'Odak ve yakınlaştırma ayarları · seçiliyken sürükleyerek kadrajı kaydırabilirsiniz');
+        if ((tpl.layouts || []).length > 1) { sep(); layBtn(); }
+        sep();
+        btn('Kaldır', () => { d[k] = ''; saveState(); select(null); refresh(); }, 'danger');
       }
       return;
     }
@@ -589,7 +612,7 @@
     if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); setZoom(curK() * 1.2); return; }
     if (mod && e.key === '-') { e.preventDefault(); setZoom(curK() / 1.2); return; }
     if (mod && e.key === '0') { e.preventDefault(); setZoom(null); return; }
-    if (e.key === 'Escape') { if (edKey) closeEditor(); else if (textKey) endText(); else if (document.querySelector('.menu-pop:not([hidden])')) closeMenus(); else select(null); return; }
+    if (e.key === 'Escape') { if (!layPop.hidden) layPop.hidden = true; else if (edKey) closeEditor(); else if (textKey) endText(); else if (document.querySelector('.menu-pop:not([hidden])')) closeMenus(); else select(null); return; }
     if (isTyping() || !selKey) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSel(); return; }
     if (e.key === 'Enter') { e.preventDefault(); activate(selKey); return; }
@@ -636,8 +659,43 @@
     if (!target) target = (imgs.find((f) => !d[f.key]) || imgs[0] || {}).key;
     if (!target) { status('Bu şablonda fotoğraf alanı yok.', true); return; }
     d[target] = src; if ((target + '_fx') in d || fieldOf(target).type === 'image') { d[target + '_fx'] = 0.5; d[target + '_fy'] = 0.5; }
+    if (!(target + '_fit' in d)) d[target + '_fit'] = 'cover';
     saveState(); refresh(); selKey = null; select(target);
+    // fotoğraf eklenince yerleşim seçeneklerini öner (Canva'daki "tasarım önerileri" gibi)
+    if ((tpl.layouts || []).length > 1) setTimeout(() => openLayPop('Fotoğraf eklendi — nasıl yerleşsin?'), 350);
   }
+
+  // ------------------------------------------------------------ Yerleşim seçici (canlı önizlemeli)
+  const LAY_DESC = { tam: 'Fotoğraf tüm kareyi kaplar, yazı üstünde', dev: 'Büyük tarih kartı öne çıkar', portre: 'Fotoğraf yanda, zemine erir', kutu: 'Fotoğraf kutuda, yazı ağırlıklı' };
+  const layOff = document.createElement('canvas');
+  function layoutCards(el) {
+    const tpl = tplOf(state.tplId), d = dataOf(tpl), fmt = fmtOf(state.fmtId);
+    const lays = tpl.layouts || ['kutu'], auto = tpl.layoutOf ? tpl.layoutOf(d) : 'kutu', cur = state.layouts[tpl.id] || 'oto';
+    const hasPhoto = tpl.fields.some((f) => f.type === 'image' && d[f.key]);
+    const items = [{ id: 'oto', name: 'Otomatik', desc: `İçeriğe göre seçilir · şu an ${LAYOUTS[auto]}` }].concat(lays.map((k) => ({ id: k, name: LAYOUTS[k], desc: LAY_DESC[k] || '', need: (k === 'tam' || k === 'portre') && !hasPhoto })));
+    const tw = 150, th = Math.round((tw * fmt.h) / fmt.w);
+    el.innerHTML = items.map((it) => `<button type="button" class="lay-card" data-l="${it.id}" aria-pressed="${it.id === cur}" ${it.need ? 'data-need="1"' : ''}><canvas width="${tw * 2}" height="${th * 2}" style="aspect-ratio:${fmt.w}/${fmt.h}"></canvas><b>${esc(it.name)}</b><small>${esc(it.need ? 'Önce fotoğraf ekleyin' : it.desc)}</small></button>`).join('');
+    el.querySelectorAll('[data-l]').forEach((b) => {
+      b.onclick = () => {
+        if (b.dataset.need) { pickPhoto((tpl.fields.find((f) => f.type === 'image') || {}).key); return; }
+        state.layouts[tpl.id] = b.dataset.l; refresh();
+        el.querySelectorAll('[data-l]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+      };
+    });
+    // önizlemeler: her yerleşim mevcut içerikle çizilir
+    requestAnimationFrame(() => el.querySelectorAll('canvas').forEach((c, i) => {
+      try { renderTo(layOff, fmt, Infinity, tpl, undefined, 0, undefined, items[i].id); const x = c.getContext('2d'); x.drawImage(layOff, 0, 0, c.width, c.height); } catch (e) { /* yok say */ }
+    }));
+  }
+  const layPop = $('#layPop');
+  function openLayPop(title) {
+    if (window.innerWidth <= 900 && curPanel) openPanel(null);
+    $('#layPopTitle').textContent = title || 'Yerleşim';
+    layoutCards($('#layPopGrid'));
+    layPop.hidden = false;
+  }
+  function toggleLayPop() { if (layPop.hidden) openLayPop(); else layPop.hidden = true; }
+  $('#layPopClose').onclick = () => { layPop.hidden = true; };
   $('#fileUp').onchange = async (e) => {
     const files = [...e.target.files]; e.target.value = '';
     for (const file of files) { try { addUpload(await loadPhoto(file)); } catch (x) { status('Görsel okunamadı.', true); } }
@@ -686,6 +744,7 @@
     document.querySelectorAll('#panel > section[data-p]').forEach((s) => { s.hidden = s.dataset.p !== id; });
     appEl.classList.toggle('collapsed', !id);
     if (id === 'yukle') buildUploads();
+    if (id === 'tasarim') layoutCards($('#layoutSeg'));
     if (id === 'paylas') { shareDraft(); updateChecks(); drawGrid(); }
     if (id) $('#panel').scrollTop = 0;
     requestAnimationFrame(fitCanvas);
@@ -861,7 +920,9 @@
     ms.querySelectorAll('[data-m]').forEach((b) => { b.onclick = () => { state.mesh = b.dataset.m; refresh(); }; });
     const lays = tpl.layouts || ['kutu'];
     const autoLay = tpl.layoutOf ? tpl.layoutOf(dataOf(tpl)) : 'kutu';
-    buildChips($('#layoutSeg'), [{ id: 'oto', name: `Otomatik · ${LAYOUTS[autoLay]}` }].concat(lays.map((k) => ({ id: k, name: LAYOUTS[k] }))), state.layouts[tpl.id] || 'oto', (id) => { state.layouts[tpl.id] = id; refresh(); }, (l) => l.name);
+    if (curPanel === 'tasarim') layoutCards($('#layoutSeg'));
+    if (!layPop.hidden) layoutCards($('#layPopGrid'));
+    void autoLay;
     $('#layoutWrap').hidden = lays.length < 2;
     $('#chkBadge').checked = !!state.badge;
     buildUnits();
