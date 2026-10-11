@@ -1,6 +1,6 @@
 /* Arayüz: şablon seçimi, form, önizleme, dışa aktarma, marka ayarları. */
 (function () {
-  const { Studio, FORMATS, GROUNDS, MESHES, MOTIFS, BRAND_DEFAULT, COLOR_LABELS } = window;
+  const { Studio, FORMATS, GROUNDS, MESHES, MOTIFS, LAYOUTS, BRAND_DEFAULT, COLOR_LABELS } = window;
   const TPLS = Studio.templates;
   const STATE_KEY = 'ilef-studyo-durum-v2';
   const BRAND_KEY = 'ilef-studyo-marka-v3';
@@ -46,7 +46,8 @@
     tpl.fields.forEach((f) => { d[f.key] = f.def != null ? f.def : f.type === 'logos' || f.type === 'images' ? [] : ''; if (f.type === 'image') { d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; } });
     return d;
   };
-  let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, data: {} }, ls.get(STATE_KEY) || {});
+  let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, layouts: {}, data: {} }, ls.get(STATE_KEY) || {});
+  state.layouts = state.layouts || {};
   const tplOf = (id) => TPLS.find((t) => t.id === id) || TPLS[0];
   const fmtOf = (id) => FORMATS.find((f) => f.id === id) || FORMATS[0];
   const dataOf = (tpl) => (state.data[tpl.id] = Object.assign(defaults(tpl), state.data[tpl.id] || {}));
@@ -125,7 +126,7 @@
   function renderTo(c, fmt, t, tpl = tplOf(state.tplId), data, slide) {
     if (c.width !== fmt.w) c.width = fmt.w;
     if (c.height !== fmt.h) c.height = fmt.h;
-    Studio.render(c.getContext('2d'), { tpl, data: data || dataOf(tpl), ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage });
+    Studio.render(c.getContext('2d'), { tpl, data: data || dataOf(tpl), layout: state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage });
   }
   // Önizleme canvas'ını sahne kutusuna sığdır
   const stageBox = $('#stageBox');
@@ -300,6 +301,10 @@
     fill($('#meshSel'), [{ id: 'oto', name: `Otomatik · ${(MESHES[tpl.mesh] || MESHES.sicak).name}` }].concat(Object.keys(MESHES).map((k) => ({ id: k, name: MESHES[k].name }))), state.mesh);
     fill($('#motifSel'), [{ id: 'oto', name: `Otomatik · ${(MOTIFS[am] || '').split(' · ')[0]}` }].concat(Object.keys(MOTIFS).map((k) => ({ id: k, name: MOTIFS[k] }))), state.motif);
     $('#meshSel').disabled = $('#motifSel').disabled = !!tpl.mono;
+    const lays = tpl.layouts || ['kutu'];
+    const autoLay = tpl.layoutOf ? tpl.layoutOf(dataOf(tpl)) : 'kutu';
+    buildChips($('#layoutSeg'), [{ id: 'oto', name: `Otomatik · ${LAYOUTS[autoLay]}` }].concat(lays.map((k) => ({ id: k, name: LAYOUTS[k] }))), state.layouts[tpl.id] || 'oto', (id) => { state.layouts[tpl.id] = id; refresh(); }, (l) => l.name);
+    $('#layoutWrap').hidden = lays.length < 2;
     $('#chkBadge').checked = !!state.badge;
     buildUnits();
     buildSlides();
@@ -359,6 +364,7 @@
     renderTo(c, fmt, Infinity, undefined, undefined, slide);
     const blob = await canvasBlob(c);
     download(blob, fileBase(tplOf(state.tplId), fmt) + (slide != null ? `-${String(slide + 1).padStart(2, '0')}` : '') + '.png');
+    if (fmt.id === 'post45' && !slide) { gridItems.unshift(gridThumb(c)); saveGrid(); }
   }
 
   $('#btnPng').onclick = async () => {
@@ -426,12 +432,13 @@
   function setBusy(b) {
     ['#btnPng', '#btnAll', '#btnPlay', '#btnVideo', '#durSel'].forEach((s) => ($(s).disabled = b));
     $('#btnVideo').classList.toggle('rec', b);
+    if (!b) { /* kayıttan sonra ızgara güncellensin */ }
   }
 
   // ------------------------------------------------------------ Taslaklar
   $('#btnSave').onclick = () => {
     const tpl = tplOf(state.tplId);
-    const draft = { tur: 'ilef-studyo-taslak', surum: 2, tplId: tpl.id, fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, data: dataOf(tpl) };
+    const draft = { tur: 'ilef-studyo-taslak', surum: 3, tplId: tpl.id, layout: state.layouts[tpl.id] || 'oto', fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, data: dataOf(tpl) };
     download(new Blob([JSON.stringify(draft, null, 1)], { type: 'application/json' }), `taslak-${tpl.id}-${today()}.json`);
   };
   $('#fileDraft').onchange = async (e) => {
@@ -443,6 +450,7 @@
       if (d.tur !== 'ilef-studyo-taslak') throw new Error();
       Object.assign(state, { tplId: d.tplId, fmtId: d.fmtId || state.fmtId, ground: d.ground || 'oto', mesh: d.mesh || 'oto', motif: d.motif || 'oto', badge: !!d.badge, unitId: d.unitId || '', slide: 0 });
       state.data[d.tplId] = d.data;
+      if (d.layout) state.layouts[d.tplId] = d.layout;
       refresh();
       status('Taslak açıldı.');
     } catch (err) { status('Bu dosya bir stüdyo taslağı değil.', true); }
@@ -593,6 +601,45 @@
   }
   $('#chkSafe').onchange = () => scheduleRender();
 
+  // ------------------------------------------------------------ Izgara önizlemesi
+  // Son paylaşılanlar (küçük JPEG) tarayıcıda saklanır; yeni gönderi sol üstte gösterilir.
+  const GRID_KEY = 'ilef-studyo-izgara-v1';
+  let gridItems = ls.get(GRID_KEY) || [];
+  const thumbCanvas = document.createElement('canvas');
+  function gridThumb(src) { // 4:5 ya da herhangi bir görsel -> ortadan 3:4, 240x320
+    const sw = src.width, sh = src.height, r = 3 / 4;
+    let cw = sw, ch = sh; if (sw / sh > r) cw = sh * r; else ch = sw / r;
+    thumbCanvas.width = 240; thumbCanvas.height = 320;
+    thumbCanvas.getContext('2d').drawImage(src, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, 240, 320);
+    return thumbCanvas.toDataURL('image/jpeg', 0.82);
+  }
+  let gridTimer;
+  function drawGrid() {
+    clearTimeout(gridTimer);
+    gridTimer = setTimeout(() => {
+      let now = '';
+      try { const c = document.createElement('canvas'); renderTo(c, fmtOf('post45'), Infinity); now = gridThumb(c); } catch (e) { now = ''; }
+      const cells = [now].concat(gridItems).slice(0, 9);
+      while (cells.length < 9) cells.push('');
+      $('#igGrid').innerHTML = cells.map((src, i) => `<div class="${i ? '' : 'now'}" style="${src ? `background-image:url(${src})` : ''}"></div>`).join('');
+    }, 250);
+  }
+  function saveGrid() { gridItems = gridItems.slice(0, 8); if (!ls.set(GRID_KEY, gridItems)) { gridItems = gridItems.slice(0, 4); ls.set(GRID_KEY, gridItems); } drawGrid(); }
+  $('#btnGridAdd').onclick = async () => {
+    await ready(fmtOf('post45'));
+    const c = document.createElement('canvas'); renderTo(c, fmtOf('post45'), Infinity);
+    try { gridItems.unshift(gridThumb(c)); saveGrid(); status('Izgaraya eklendi.'); } catch (e) { status(taintMsg, true); }
+  };
+  $('#fileGrid').onchange = async (e) => {
+    for (const file of [...e.target.files].reverse()) {
+      const url = await readFile(file);
+      const img = await new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.src = url; });
+      gridItems.unshift(gridThumb(img));
+    }
+    e.target.value = ''; saveGrid();
+  };
+  $('#btnGridClear').onclick = () => { gridItems = []; saveGrid(); };
+
   // ------------------------------------------------------------ Paylaşım metni
   const camel = (s) => '#' + String(s).replace(/[’'".,:;!?()–-]/g, ' ').split(/\s+/).filter(Boolean).map((w) => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1)).join('');
   const TOPIC = { duyuru: 'Duyuru', sontarih: 'Duyuru', rakam: 'Burs', etkinlik: 'Etkinlik', haber: 'İLEFHaber', kisi: '', odul: 'Başarı', vefat: '', ozelgun: '', afis: 'Etkinlik', karusel: 'İLEFHaber' };
@@ -629,7 +676,7 @@
     $('#shTags').value = [...new Set(tags)].slice(0, 5).join(' ');
   }
   let shareTimer;
-  const scheduleShare = () => { clearTimeout(shareTimer); shareTimer = setTimeout(() => { shareDraft(); updateChecks(); }, 300); };
+  const scheduleShare = () => { clearTimeout(shareTimer); shareTimer = setTimeout(() => { shareDraft(); updateChecks(); drawGrid(); }, 300); };
   $('#btnRegen').onclick = shareDraft;
   document.querySelectorAll('[data-copy]').forEach((b) => {
     b.onclick = async () => {

@@ -42,6 +42,8 @@
       </section>
       <section>
         <h2><span>4</span> Görünüm</h2>
+        <div id="layoutWrap"><small class="sublabel">Yerleşim</small><div id="layoutSeg" class="chips"></div></div>
+        <small class="sublabel">Zemin</small>
         <div id="groundSeg" class="chips"></div>
         <div class="row3">
           <label>Renk tonu (mesh)<select id="meshSel"></select></label>
@@ -82,6 +84,15 @@
         <section class="checks">
           <h2>Kontroller <label class="toggle"><input type="checkbox" id="chkSafe" /> Güvenli alanı göster</label></h2>
           <ul id="checkList"></ul>
+        </section>
+        <section class="gridprev">
+          <h2>Izgara önizlemesi <small>yeni gönderi son paylaşılanların yanında</small></h2>
+          <div class="ig" id="igGrid"></div>
+          <div class="share-actions">
+            <button type="button" id="btnGridAdd">Izgaraya ekle</button>
+            <label class="btnlike">Mevcut gönderi ekle<input type="file" id="fileGrid" accept="image/*" multiple hidden /></label>
+            <button type="button" class="link" id="btnGridClear">Temizle</button>
+          </div>
         </section>
         <section class="share">
           <h2>Paylaşım metni <small>otomatik taslak — göndermeden önce düzenleyin</small></h2>

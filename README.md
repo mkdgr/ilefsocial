@@ -13,6 +13,12 @@ Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada
 - **Tek yazı ailesi: Instrument Sans** (400–700). Başlıklarda sıkı harf aralığı.
 - **Konu motifleri** — rastgele değil, gönderinin konusunu anlatır: film şeridi, başlıktan üretilen ses dalgası, gazete ızgarası, takvim, bağlantı ağı, piksel ızgara, yayın halkaları, ışık huzmeleri. Bölüm seçilince o bölümün motifi otomatik gelir (Gazetecilik → gazete, RTS → film, HİT/Reklam → ağ, YMİ → piksel, Radyo İlef → ses).
 - **Kırmızı zemin** yalnızca büyük haber için (akışta 9 gönderide en fazla 1).
+- **Izgarada ritim:** dört zemin (beyaz, lacivert, siyah, kırmızı) ve dört yerleşim dönüşümlü kullanılır:
+  - *Tam kadraj fotoğraf* (etkinlik, haber, karusel kapağı): fotoğraf kareyi kaplar, başlık üstünde beyaz.
+  - *Dev kırmızı kare* (son tarih, fotoğrafsız etkinlik, özel gün): logodaki kare büyüyüp tarihi taşır.
+  - *Yan portre* (atama/tebrik, lacivert zeminde).
+  - *Kutulu* (yazı ağırlıklı içerik).
+- **Izgara önizlemesi:** stüdyo, yeni gönderinin son paylaşılanların yanında nasıl duracağını gösterir. 4:5 PNG indirilen her gönderi ızgaraya eklenir; mevcut Instagram gönderileri de yüklenebilir.
 
 ## İçerik türleri
 

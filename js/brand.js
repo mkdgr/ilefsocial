@@ -73,8 +73,18 @@ window.FORMATS = [
 // Zemin: beyaz (varsayılan) ya da kırmızı (büyük haber — seyrek kullanın)
 window.GROUNDS = [
   { id: 'beyaz', name: 'Beyaz' },
+  { id: 'lacivert', name: 'Lacivert' },
+  { id: 'siyah', name: 'Siyah' },
   { id: 'kirmizi', name: 'Kırmızı · büyük haber' },
 ];
+
+// Yerleşimler — ızgarada ritim için türler arasında dönüşümlü kullanılır
+window.LAYOUTS = {
+  tam: 'Tam kadraj fotoğraf',
+  dev: 'Dev kırmızı kare (tarih)',
+  portre: 'Yan portre',
+  kutu: 'Kutulu',
+};
 
 // Mesh tonları — beyaz tülün arkasından görünen renk lekeleri
 window.MESHES = {

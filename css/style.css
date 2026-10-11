@@ -163,3 +163,12 @@ h2 span { background: var(--accent); }
 .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); }
 .tpl[aria-pressed="true"] { border-color: var(--accent); }
 a.btnlike { text-decoration: none; color: inherit; }
+.sublabel { display: block; font-size: 13px; font-weight: 600; color: #374152; margin: 10px 0 6px; }
+#layoutWrap[hidden] { display: none; }
+.gridprev h2 small { text-transform: none; letter-spacing: 0; font: 400 12.5px "Instrument Sans", sans-serif; color: var(--muted); }
+.ig { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; max-width: 360px; margin-bottom: 10px; }
+.ig div { aspect-ratio: 3 / 4; background: #ececea center / cover no-repeat; position: relative; }
+.ig div.now { outline: 3px solid var(--accent); outline-offset: -3px; }
+.ig div.now::after { content: "yeni"; position: absolute; left: 6px; top: 6px; background: var(--accent); color: #fff; font: 600 11px "Instrument Sans"; padding: 2px 6px; }
+.assist { grid-template-columns: minmax(240px, 1fr) minmax(260px, 380px) 2fr; }
+@media (max-width: 1300px) { .assist { grid-template-columns: 1fr 1fr; } }

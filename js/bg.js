@@ -78,10 +78,10 @@
     ctx.translate(W * 0.45, H * 0.42);
     ctx.scale(1.2 * W / M, 0.9 * H / M);
     const v = ctx.createRadialGradient(0, 0, 0, 0, 0, M);
-    v.addColorStop(0, 'rgba(255,255,255,.93)');
-    v.addColorStop(0.45, 'rgba(255,255,255,.82)');
-    v.addColorStop(0.85, 'rgba(255,255,255,.35)');
-    v.addColorStop(1, 'rgba(255,255,255,.15)');
+    v.addColorStop(0, 'rgba(255,255,255,.88)');
+    v.addColorStop(0.42, 'rgba(255,255,255,.72)');
+    v.addColorStop(0.8, 'rgba(255,255,255,.18)');
+    v.addColorStop(1, 'rgba(255,255,255,.04)');
     ctx.fillStyle = v;
     ctx.fillRect(-M * 2, -M * 2, M * 4, M * 4);
     ctx.restore();
@@ -193,6 +193,16 @@
         const g = ctx.createLinearGradient(0, 0, W, H);
         g.addColorStop(0, pal.bg); g.addColorStop(1, D.shade(pal.bg, -0.18));
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      } else if (pal.dark) {
+        // koyu zemin (lacivert/siyah): köşelerde hafif renkli ışımalar
+        ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, W, H);
+        const Mx = Math.max(W, H), tt2 = isFinite(env.t) ? env.t : 1.3;
+        [[1.0, 0.0, pal.glow[0], 0.5], [0.0, 1.0, pal.glow[1], 0.4]].forEach(([fx, fy, col, a], k) => {
+          const cx = fx * W + Math.cos(tt2 * 0.35 + k * 2) * 50 * env.u, cy = fy * H + Math.sin(tt2 * 0.3 + k) * 40 * env.u, r = Mx * 0.55;
+          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+          g.addColorStop(0, D.hexA(col, a)); g.addColorStop(1, D.hexA(col, 0));
+          ctx.fillStyle = g; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+        });
       } else {
         ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, W, H);
         const mz = window.MESHES[env.mesh];
@@ -203,13 +213,13 @@
         ctx.drawImage(stippleLayer(W, H), 0, 0); ctx.restore();
       }
       // kâğıt dokusu
-      ctx.save(); ctx.globalAlpha = pal.red ? 0.5 : 0.8; ctx.fillStyle = grainPattern(ctx); ctx.fillRect(0, 0, W, H); ctx.restore();
+      ctx.save(); ctx.globalAlpha = pal.dark ? 0.55 : 0.8; ctx.fillStyle = grainPattern(ctx); ctx.fillRect(0, 0, W, H); ctx.restore();
       // konu motifi
       const fn = M[env.motif];
       if (fn) {
         ctx.save();
-        const col = pal.red ? '#FFFFFF' : pal.motif;
-        ctx.globalAlpha = env.motifA = pal.red ? (env.motif === 'isik' ? 0.06 : 0.22) : 0.9;
+        const col = pal.dark ? '#FFFFFF' : pal.motif;
+        ctx.globalAlpha = env.motifA = pal.dark ? (env.motif === 'isik' ? 0.06 : 0.18) : 0.9;
         fn(ctx, env, col);
         ctx.restore();
       }
