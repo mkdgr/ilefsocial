@@ -27,7 +27,9 @@ window.BRAND_DEFAULT = {
   },
   fontSet: 'modern',
   logos: [
+    { id: 'ankara-universitesi', name: 'Ankara Üniversitesi', group: 'ana', dark: 'assets/logos/ankara-universitesi.svg', light: 'assets/logos/ankara-universitesi.svg' },
     { id: 'ilef', name: 'İletişim Fakültesi (ilef)', group: 'ana', dark: 'assets/logos/ilef.svg', light: 'assets/logos/ilef.svg' },
+    { id: 'au-80-yil', name: 'Ankara Üniversitesi 80. yıl', group: 'ana', dark: 'assets/logos/ankara-universitesi-80-yil-beyaz.svg', light: 'assets/logos/ankara-universitesi-80-yil.svg' },
     { id: 'gazetecilik', name: 'Gazetecilik Bölümü', group: 'bolum', dark: 'assets/logos/gazetecilik.svg', light: 'assets/logos/gazetecilik.svg' },
     { id: 'hit', name: 'Halkla İlişkiler ve Tanıtım Bölümü', group: 'bolum', dark: 'assets/logos/halkla-iliskiler.svg', light: 'assets/logos/halkla-iliskiler.svg' },
     { id: 'rtvs', name: 'Radyo, Televizyon ve Sinema Bölümü', group: 'bolum', dark: 'assets/logos/radyo-tv-sinema.svg', light: 'assets/logos/radyo-tv-sinema.svg' },
