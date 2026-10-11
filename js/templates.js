@@ -266,27 +266,29 @@
     for (const [nx, ny] of pts) { const d = Math.hypot(nx - cx, ny - cy); const k = Math.min(1, rem / d); ctx.lineTo(cx + (nx - cx) * k, cy + (ny - cy) * k); rem -= d; if (rem <= 0) break; cx = nx; cy = ny; }
     ctx.stroke();
     // köşedeki kırmızı kare
-    const q = s * 0.135, qp = D.prog(env.t, 0.3, 0.5);
+    const q = Math.max(s * 0.135, 40 * u), qp = D.prog(env.t, 0.3, 0.5);
     ctx.fillStyle = o.red; ctx.fillRect(x - lw / 2, y - lw / 2, q * qp, q * qp);
     // içerik
     ctx.globalAlpha *= D.prog(env.t, 0.8, 0.8);
     // Dengeli üç kat: üstte etiket (kırmızı karenin yanında), ortada gün, altta ay + gün adı / yıl.
     // Saat karta girmez; gönderinin bilgi satırında yazılır.
     ctx.fillStyle = o.ink; ctx.textBaseline = 'alphabetic';
-    const pad = s * 0.08;
+    // küçük kartlarda yazılar orantılı küçülüp kaybolmasın: alt sınır u ile
+    const small = s < 420 * u;
+    const pad = s * (small ? 0.07 : 0.08);
     if (o.label) {
-      let lz = s * 0.078; ctx.font = D.font(600, lz, brand.fonts.body);
+      let lz = Math.min(s * 0.13, Math.max(s * 0.078, 30 * u)); ctx.font = D.font(600, lz, brand.fonts.body);
       const lw2 = s - q - pad * 1.8;
       while (ctx.measureText(o.label).width > lw2 && lz > s * 0.05) { lz *= 0.94; ctx.font = D.font(600, lz, brand.fonts.body); }
       ctx.textBaseline = 'middle'; ctx.fillText(o.label, x + q + pad * 0.8, y + q / 2, lw2); ctx.textBaseline = 'alphabetic';
     }
     const footY = y + s - pad;
-    let mz = s * 0.12; ctx.font = D.font(600, mz, brand.fonts.head);
-    const sub = o.footR ? String(o.footR) : '';
-    const subZ = s * 0.072;
+    let mz = Math.min(s * 0.2, Math.max(s * 0.12, 42 * u)); ctx.font = D.font(600, mz, brand.fonts.head);
+    const sub = o.footR && !small ? String(o.footR) : '';
+    const subZ = Math.max(s * 0.072, 26 * u);
     const room = () => s - 2 * pad - (sub ? (ctx.font = D.font(500, subZ, brand.fonts.body), ctx.measureText(sub).width + pad * 0.6) : 0);
     const fitMonth = () => { ctx.font = D.font(600, mz, brand.fonts.head); return ctx.measureText(o.foot || '').width; };
-    while (o.foot && fitMonth() > room() && mz > s * 0.07) mz *= 0.94;
+    while (o.foot && fitMonth() > room() && mz > s * 0.1) mz *= 0.94;
     if (o.foot) { D.ls(ctx, -0.02 * mz); ctx.font = D.font(600, mz, brand.fonts.head); ctx.fillText(o.foot, x + pad, footY); D.ls(ctx, 0); }
     if (sub) { ctx.font = D.font(500, subZ, brand.fonts.body); ctx.textAlign = 'right'; ctx.globalAlpha *= 0.72; ctx.fillText(sub, x + s - pad, footY); ctx.globalAlpha /= 0.72; ctx.textAlign = 'left'; }
     // gün: etiket ile ay arasındaki alanı dengeli doldurur
@@ -306,7 +308,7 @@
     if (!p && !dateStr) return null;
     const { u, pal, brand } = env;
     return { key: o.key || env.keyOf(dateStr), gap: o.gap != null ? o.gap : 44, layout() {
-      const s = (o.size || 250) * u * Math.min(env.fs, 1.2);
+      const s = (o.size || 300) * u * Math.min(env.fs, 1.2);
       return { h: s, draw(ctx, x, y) {
         if (p) dateFrame(ctx, env, p, { x, y, s, ink: pal.fg, red: env.brand.colors.red, label: o.label || p.weekday, foot: p.month, footR: o.label && o.label !== p.weekday ? p.weekday : String(p.y) });
         else { ctx.fillStyle = pal.fg; ctx.font = D.font(600, s * 0.16, brand.fonts.body); ctx.textBaseline = 'middle'; ctx.fillText(String(dateStr), x, y + s / 2, s * 2); }
@@ -699,7 +701,7 @@
     const p = D.parseDate(c.date);
     if (!p) return;
     const { u, W, m, brand } = env;
-    const s = 230 * u * Math.min(env.fs, 1.15), x = W - m - env.mr - s, y = sigBottom + 50 * u;
+    const s = 280 * u * Math.min(env.fs, 1.15), x = W - m - env.mr - s, y = sigBottom + 50 * u;
     hit(env, env.keyOf(c.date), x, y, s, s);
     dateFrame(ctx, env, p, { x, y, s, ink: '#FFFFFF', red: env.brand.colors.red, glass: true, label: p.weekday, foot: p.month, footR: String(p.y) });
     void brand;
@@ -979,7 +981,7 @@
       }
       compose(ctx, env, {
         photo: photoOf(env, d, 'foto'),
-        top: [p ? B.dateSq(env, d.tarih, [], { gap: 0, size: 220 }) : null, B.title(env, d.baslik, { gap: 50, max: 130, flex: 0, maxLines: 4 }), B.lead(env, d.metin, { flex: 0 })],
+        top: [p ? B.dateSq(env, d.tarih, [], { gap: 0, size: 290 }) : null, B.title(env, d.baslik, { gap: 50, max: 130, flex: 0, maxLines: 4 }), B.lead(env, d.metin, { flex: 0 })],
         bottom: [], footL: env.brand.web, footR: env.brand.social, valign: 'center',
       });
     },
