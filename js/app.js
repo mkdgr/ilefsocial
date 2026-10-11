@@ -801,7 +801,7 @@
       b.title = t.desc;
       b.setAttribute('aria-pressed', t.id === state.tplId);
       b.innerHTML = `<canvas width="240" height="240" data-id="${t.id}"></canvas><b>${t.name}</b>`;
-      b.onclick = () => { if (state.tplId !== t.id) { select(null); state.tplId = t.id; state.slide = 0; refresh(); } };
+      b.onclick = () => { if (state.tplId !== t.id) { select(null); state.tplId = t.id; state.slide = 0; refresh(); } openPanel(null); };
       b.dataset.q = (t.name + ' ' + t.desc).toLocaleLowerCase('tr-TR');
       (grids[t.cat || ''] || grids[Object.keys(grids)[0]] || g).appendChild(b);
     });
