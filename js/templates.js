@@ -48,9 +48,18 @@
     return w;
   }
 
+  // Logo şeridi ve alt bilgi şeridi editörde topluca taşınabilir (env.ov._imza / env.ov._alt = { dx, dy })
+  function groupShift(ctx, env, key) {
+    const o = env.ov && env.ov[key];
+    const dx = (o && o.dx) || 0, dy = (o && o.dy) || 0;
+    if (dx || dy) ctx.translate(dx, dy);
+    return { dx, dy };
+  }
   function signature(ctx, env) {
     const { u, brand, m, top, t } = env;
     ctx.save();
+    const gs = groupShift(ctx, env, '_imza');
+    const hits0 = env.hits ? env.hits.length : 0;
     ctx.globalAlpha *= D.prog(t, 0, 0.6);
     let x = m;
     // 80. yıl logosu açıksa (ve zemin uygunsa) Ankara Üniversitesi mührünün yerine geçer
@@ -74,17 +83,25 @@
       ctx.textAlign = 'left';
     }
     ctx.restore();
+    shiftHits(env, hits0, gs);
+    if (env.ctx === ctx) hit(env, '_imza', m + gs.dx, top - 14 * u + gs.dy, env.W - 2 * m - env.mr, 92 * u, { movable: true, group: true });
     return top + 64 * u;
   }
 
+  function shiftHits(env, from, gs) { if (env.hits && (gs.dx || gs.dy)) for (let i = from; i < env.hits.length; i++) { env.hits[i].x += gs.dx; env.hits[i].y += gs.dy; } }
   function footer(ctx, env, left, right) {
     const { u, m, bottom, t, pal, brand } = env;
+    if (!left && !right) return;
     ctx.save();
+    const gs = groupShift(ctx, env, '_alt');
+    const hits0 = env.hits ? env.hits.length : 0;
     ctx.globalAlpha *= D.prog(t, 0.3, 0.6);
     ctx.fillStyle = pal.grey; ctx.font = D.font(500, 25 * u, brand.fonts.body); ctx.textBaseline = 'alphabetic';
     if (left) { ctx.fillText(left, m, bottom, env.W * 0.6); const k = env.keyOf(left); if (k) hit(env, k, m, bottom - 30 * u, Math.min(env.W * 0.6, ctx.measureText(left).width), 40 * u); }
     if (right) { ctx.textAlign = 'right'; ctx.fillText(right, env.W - m - env.mr, bottom, env.W * 0.35); ctx.textAlign = 'left'; }
     ctx.restore();
+    shiftHits(env, hits0, gs);
+    hit(env, '_alt', m + gs.dx, bottom - 40 * u + gs.dy, env.W - 2 * m - env.mr, 56 * u, { movable: true, group: true });
   }
 
   // ---------------------------------------------------------------- yerleşim (dikey yığın)
@@ -908,11 +925,11 @@
       TOP_FIELD('Dekanlık'),
     ],
     render(ctx, d, env) {
-      const line = [d.unvan, d.mesaj].filter(Boolean).map((s) => String(s).trim().replace(/\.$/, '')).join('. ') + '.';
       compose(ctx, env, {
         layout: env.layout, photo: photoOf(env, d, 'foto'), photoShare: env.tall ? 0.5 : 0.56,
-        top: [B.cat(env, d.etiket), B.title(env, env.layout === 'portre' ? String(d.ad || '').replace(/ (?=\S+$)/, '\n') : d.ad, { gap: 22, max: 120, maxLines: 3 }), B.lead(env, line === '.' ? '' : line, { gap: 20 })],
-        bottom: [],
+        top: [B.cat(env, d.etiket), B.title(env, env.layout === 'portre' ? String(d.ad || '').replace(/ (?=\S+$)/, '\n') : d.ad, { gap: 22, max: 120, maxLines: 3, flex: 0 }),
+          B.lead(env, d.unvan, { gap: 20, weight: 600, color: 'fg', flex: 0, maxLines: 2 }), B.lead(env, d.mesaj, { gap: 14, flex: 0, maxLines: 4 })],
+        bottom: [], footL: env.brand.web, footR: env.brand.social,
       });
     },
   });

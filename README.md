@@ -51,6 +51,7 @@ Canva’ya benzer bir çalışma düzeni:
 - **Yerleşim:** “Yerleşim” düğmesi (ya da Tasarım paneli) her seçeneği o anki içerikle küçük önizleme olarak gösterir; fotoğraf eklenince öneriler kendiliğinden açılır. Fotoğraf gerektiren yerleşimler fotoğraf yokken soluk görünür.
 - **Yüklemeler:** “Dosya yükle” ya da fotoğrafı doğrudan tuvale sürükleyip bırakın; bırakılan fotoğraf alanına yerleşir. Karuselde alttaki **+** yeni sayfa ekler.
 - **Alt şerit:** sayfa küçük resimleri, yakınlaştırma (Ctrl + tekerlek, Ctrl + / Ctrl − / Ctrl 0).
+- **Logo ve alt bilgi şeritleri:** topluca seçilip sürüklenir (silinemez). Story/Reels’te *Alta in* / *Üste çık* kısayolu vardır; seçiliyken platform arayüzünün kapattığı alanlar kırmızıyla gösterilir.
 - **Kısayollar:** Ctrl+Z / Ctrl+Shift+Z, Delete (sil), Enter (düzenle), ok tuşları (Shift ile 10 px), Esc.
 - **Kimlik koruması:** yazı tipi her zaman Instrument Sans, renkler yalnızca marka paletinden; konum ve ölçek her formatta ayrı, renk ve silme tüm formatlarda ortak tutulur.
 - **Telefonda:** menü alt sekme çubuğuna, paneller alttan açılan sayfaya, araç çubuğu ekranın altına iner.

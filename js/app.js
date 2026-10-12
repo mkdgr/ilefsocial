@@ -193,8 +193,11 @@
   // Tuvaldeki her öğe seçilebilir: tıklayınca seçilir, sürükleyince taşınır, köşelerden büyür,
   // çift tıklayınca (ya da seçiliyken bir kez daha tıklayınca) yerinde düzenlenir.
   const hitLayer = $('#hitLayer'), ed = $('#inlineEd'), selBox = $('#selBox'), textEd = $('#textEd'), guides = $('#guides');
+  let showSafe = false; // grup şeridi seçiliyken güvenli alan gösterilir
   let edKey = null, selKey = null, textKey = null, lastHits = [], merged = new Map(), drag = null;
-  const fieldOf = (key) => tplOf(state.tplId).fields.find((f) => f.key === key);
+  // Şablon alanları + topluca taşınabilen şeritler (logo şeridi, alt bilgi)
+  const GROUPS = { _imza: { key: '_imza', label: 'Logo şeridi', type: 'group' }, _alt: { key: '_alt', label: 'Alt bilgi şeridi', type: 'group' } };
+  const fieldOf = (key) => GROUPS[key] || tplOf(state.tplId).fields.find((f) => f.key === key);
   const scaleK = () => cv.clientWidth / fmtOf(state.fmtId).w;
   const isTyping = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable); };
 
@@ -258,7 +261,7 @@
     const fmt = fmtOf(state.fmtId);
     selBox.hidden = !!textKey;
     Object.assign(selBox.style, { left: (h.x / fmt.w) * 100 + '%', top: (h.y / fmt.h) * 100 + '%', width: (h.w / fmt.w) * 100 + '%', height: (h.h / fmt.h) * 100 + '%' });
-    selBox.classList.toggle('nohandles', !h.movable || !!textKey);
+    selBox.classList.toggle('nohandles', !h.movable || !!textKey || !!h.group);
     selBox.classList.toggle('low', h.y < fmt.h * 0.06 && h.h < fmt.h * 0.85);
     selBox.classList.toggle('inside', h.y < fmt.h * 0.06 && h.h >= fmt.h * 0.85);
     const f = fieldOf(selKey), s = curOv(selKey).s;
@@ -270,7 +273,8 @@
     if (textKey && textKey !== key) endText();
     if (edKey && edKey !== key) closeEditor();
     selKey = key;
-    placeSel(); buildCtx();
+    showSafe = !!(key && GROUPS[key] && fmtOf(state.fmtId).safeBottom);
+    placeSel(); buildCtx(); scheduleRender();
   }
 
   // Tuval koordinatı
@@ -370,7 +374,7 @@
 
   // Seçili öğeyi düzenle: yazılar yerinde, tarih ve fotoğraflar küçük pencerede
   function activate(key) {
-    const f = fieldOf(key), h = merged.get(key); if (!f) return;
+    const f = fieldOf(key), h = merged.get(key); if (!f || f.type === 'group') return;
     if ((f.type === 'text' || f.type === 'textarea' || f.type === 'select') && h && h.fs) startText(key);
     else openEditor(key);
   }
@@ -520,6 +524,15 @@
     const f = fieldOf(selKey), h = merged.get(selKey) || {}, ov = curOv(selKey);
     if (!f) return;
     add(`<span class="tag">${esc(shortLabel(f))}</span>`);
+    if (f.type === 'group') {
+      const fmt = fmtOf(state.fmtId), u = Math.min(fmt.w, fmt.h) / 1080;
+      // Story/Reels'te güvenli alanın içinde kalan şeridi kenara yaklaştırma kısayolu
+      if (selKey === '_alt' && fmt.safeBottom) btn('⤓ Alta in', () => { setOv('_alt', { dx: 0, dy: (fmt.safeBottom - 96) * u }); buildCtx(); }, '', 'Platform düğmelerinin altında kalabilir; önizlemede kontrol edin');
+      if (selKey === '_imza' && fmt.safeTop) btn('⤒ Üste çık', () => { setOv('_imza', { dx: 0, dy: -(fmt.safeTop - 96) * u }); buildCtx(); }, '', 'Platform başlığının altında kalabilir; önizlemede kontrol edin');
+      if (ov.dx || ov.dy) btn('⌖ Konumu sıfırla', () => { setOv(selKey, { dx: null, dy: null }); buildCtx(); });
+      add(`<span class="hint">Sürükleyerek topluca taşıyın${fmt.safeBottom ? ' · kırmızı alanlar platform arayüzünün altında kalır' : ''}.</span>`);
+      return;
+    }
     if (f.type === 'image') {
       btn(d[selKey] ? 'Değiştir' : 'Fotoğraf seç', () => pickPhoto(selKey));
       if (d[selKey] && (selKey + '_fx') in d) {
@@ -575,6 +588,7 @@
     if (!selKey) return;
     const f = fieldOf(selKey), h = merged.get(selKey), d = dataOf(tplOf(state.tplId));
     if (f.type === 'image') { d[selKey] = ''; saveState(); select(null); refresh(); return; }
+    if (f.type === 'group') { status(`${f.label} kurumsal imzanın parçasıdır, silinemez; yalnızca taşınabilir.`); return; }
     if (h && h.movable) { const k = selKey; select(null); setOv(k, { hidden: true }); buildHidden(); status(`“${shortLabel(f)}” silindi.`, false, { label: 'Geri al', fn: () => { setOv(k, { hidden: null }); buildHidden(); } }); }
   }
   function buildHidden() {
@@ -1310,7 +1324,7 @@
 
   // Güvenli alan katmanı (yalnızca önizlemede)
   function drawSafe() {
-    if (!$('#chkSafe').checked) return;
+    if (!$('#chkSafe').checked && !showSafe) return;
     const fmt = fmtOf(state.fmtId), x = cv.getContext('2d');
     x.save();
     x.fillStyle = 'rgba(220,30,60,.28)';
