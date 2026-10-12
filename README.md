@@ -6,6 +6,8 @@ Kim hazırlarsa hazırlasın duyuru, etkinlik, haber, vefat ve dışarıdan gele
 Kurulum gerektirmez: `index.html` dosyasını Chrome ya da Edge ile açın. İnternet yalnızca yazı tipi (Google Fonts) için kullanılır.
 Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada “Kimlik kılavuzu”).
 
+**Giriş şifresi:** stüdyo açılışta şifre sorar (`js/kapi.js`; kodda yalnızca SHA-256 özeti durur, şifre değiştirme yönergesi dosyanın başında). Tarayıcı içi bir kilittir; asıl erişim denetimi sayfanın kimlerle paylaşıldığıdır.
+
 ## Görsel dil
 
 - **Beyaz ve tonları.** Arkada, beyaz tülün ardından köşelerde görünen yumuşak renk lekeleri (mesh) ve dağınık nokta dokusu.
