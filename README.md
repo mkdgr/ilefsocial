@@ -50,6 +50,7 @@ Canva’ya benzer bir çalışma düzeni:
 - **Araç çubuğu:** boyut (A− / A+), renk (yalnızca marka paleti), konumu sıfırla, sil. Tarihte takvim.
 - **Fotoğraf:** *Doldur* (kutuyu kaplar, taşan kısım kırpılır) ya da *Sığdır* (fotoğrafın tamamı görünür), yakınlaştırma (%100–300), *Ortala*; fotoğraf seçiliyken sürüklemek kadrajı kaydırır. *Ayrıntı* ile odak sürgüleri.
 - **Yerleşim:** “Yerleşim” düğmesi (ya da Tasarım paneli) her seçeneği o anki içerikle küçük önizleme olarak gösterir; fotoğraf eklenince öneriler kendiliğinden açılır. Fotoğraf gerektiren yerleşimler fotoğraf yokken soluk görünür.
+- **Fakülte arşivi (Yüklemeler paneli):** 72 etiketli fakülte fotoğrafı (kampüs, mezuniyet, radyo, stüdyo, atölye…). *✨ Arşivden öner* düğmesi şablona ve seçili birime uygun fotoğrafları önerir; açıklamaları alternatif metne geçer. Yeni fotoğraf: `assets/arsiv/` (tam boy ≤1600 px) ve `assets/arsiv/k/` (küçük resim ≤400 px), ardından `js/arsiv.js`’e bir satır.
 - **Yüklemeler:** “Dosya yükle” ya da fotoğrafı doğrudan tuvale sürükleyip bırakın; bırakılan fotoğraf alanına yerleşir. Karuselde alttaki **+** yeni sayfa ekler.
 - **Alt şerit:** sayfa küçük resimleri, yakınlaştırma (Ctrl + tekerlek, Ctrl + / Ctrl − / Ctrl 0).
 - **Yerleşimler:** Tam kadraj fotoğraf · Dev tarih kartı · Yan portre · **Bölünmüş** (fotoğraf bir yarıda kenardan kenara) · **Ortalı** (tipografik afiş) · Kutulu — şablona göre.

@@ -53,9 +53,14 @@
   }
 
   // ------------------------------------------------------------ Durum
+  const arsivSrc = (f) => 'assets/arsiv/' + f;
+  const ORNEK_FOTO = { haber: { foto: 'foto-36.jpg' }, karusel: { kapak: 'foto-35.jpg', fotolar: ['foto-36.jpg', 'foto-30.jpg', 'foto-40.jpg'] } };
   const defaults = (tpl) => {
     const d = {};
     tpl.fields.forEach((f) => { d[f.key] = f.def != null ? f.def : f.type === 'logos' || f.type === 'images' ? [] : ''; if (f.type === 'image') { d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; d[f.key + '_fit'] = 'cover'; d[f.key + '_z'] = 1; } });
+    // örnek tasarımlarda fakülte arşivinden gerçek fotoğraflar
+    const ex = window.ARSIV && ORNEK_FOTO[tpl.id];
+    if (ex) Object.keys(ex).forEach((k) => { d[k] = Array.isArray(ex[k]) ? ex[k].map(arsivSrc) : arsivSrc(ex[k]); });
     return d;
   };
   let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, layouts: {}, data: {}, ov: {}, extra: { logos: [], mode: 'yan' } }, ls.get(STATE_KEY) || {});
@@ -532,7 +537,9 @@
       }
       // boş fotoğraf alanı varsa doğrudan ekleme
       const emptyImg = tpl.fields.find((f) => f.type === 'image' && !d[f.key]);
-      if (emptyImg) { btn('＋ Fotoğraf ekle', () => pickPhoto(emptyImg.key), '', shortLabel(emptyImg)); sep(); }
+      if (emptyImg) { btn('＋ Fotoğraf ekle', () => pickPhoto(emptyImg.key), '', shortLabel(emptyImg)); }
+      if (ARS.length && !tpl.mono && tpl.fields.some((f) => (f.type === 'image' && !f.poster) || f.type === 'images')) btn('✨ Arşivden öner', openSuggest, 'lay-btn', 'Fakülte arşivinden bu içeriğe uygun fotoğraflar');
+      if (emptyImg || ARS.length) sep();
       const pages = Array.isArray(d.fotolar) ? d.fotolar : null;
       if (pages && pages.length) {
         add('<span class="hint">Fotoğraf sayfaları:</span>');
@@ -805,6 +812,46 @@
     dragSrc = null;
   });
 
+  // ------------------------------------------------------------ Fakülte arşivi
+  const ARS = window.ARSIV || [];
+  const arsivOf = (src) => ARS.find((x) => src === arsivSrc(x.f));
+  // Şablon ve birime göre öneri sırası: birim etiketleri ağırlıklı, sonra şablon etiketleri
+  function arsivOneri(n) {
+    const O = window.ARSIV_ONERI || { tpl: {}, unit: {} }, tpl = tplOf(state.tplId), unit = unitOf();
+    const ut = (unit && O.unit[unit.id]) || [], tt = O.tpl[tpl.id] || [];
+    const used = new Set(Object.values(dataOf(tpl)).flat().filter((v) => typeof v === 'string'));
+    const score = (x) => x.t.reduce((s, t) => s + (ut.includes(t) ? 3 : 0) + (tt.includes(t) ? 2 - tt.indexOf(t) * 0.3 : 0), 0) - (used.has(arsivSrc(x.f)) ? 10 : 0);
+    // aynı puanlılar her açılışta biraz karışsın (hep aynı fotoğraflar gelmesin)
+    return ARS.map((x) => ({ x, s: score(x) + Math.random() * 0.9 })).filter((o) => o.s > 0.9).sort((a, b) => b.s - a.s).slice(0, n).map((o) => o.x);
+  }
+  let arsivTag = 'oneri';
+  function buildArsiv() {
+    const wrap = $('#arsivWrap'); wrap.hidden = !ARS.length; if (!ARS.length) return;
+    const T = window.ARSIV_ETIKET || {};
+    const tags = [['oneri', '✨ Önerilen'], ['hepsi', 'Tümü']].concat(Object.keys(T).filter((k) => ARS.some((x) => x.t.includes(k))).map((k) => [k, T[k]]));
+    $('#arsivTags').innerHTML = tags.map(([k, n]) => `<button type="button" class="chip" data-t="${k}" aria-pressed="${k === arsivTag}">${esc(n)}</button>`).join('');
+    $('#arsivTags').querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { arsivTag = b.dataset.t; buildArsiv(); }; });
+    const list = arsivTag === 'oneri' ? arsivOneri(12) : arsivTag === 'hepsi' ? ARS : ARS.filter((x) => x.t.includes(arsivTag));
+    const g = $('#arsivGrid'); g.innerHTML = '';
+    list.forEach((x) => {
+      const img = document.createElement('img'); img.src = 'assets/arsiv/k/' + x.f; img.alt = x.a; img.title = x.a; img.loading = 'lazy'; img.draggable = true;
+      img.onclick = () => placeImage(arsivSrc(x.f));
+      img.ondragstart = (e) => { dragSrc = arsivSrc(x.f); e.dataTransfer.setData('text/plain', 'ilef-upload'); e.dataTransfer.effectAllowed = 'copy'; };
+      g.appendChild(img);
+    });
+  }
+  // Araç çubuğundan: şablona uygun fotoğrafları öner (yerleşim seçicisinin yerinde açılır)
+  function openSuggest() {
+    if (window.innerWidth <= 900 && curPanel) openPanel(null);
+    $('#layPopTitle').textContent = 'Arşivden önerilen fotoğraflar';
+    const g = $('#layPopGrid');
+    g.innerHTML = arsivOneri(10).map((x) => `<button type="button" class="lay-card sug" data-f="${x.f}"><img src="assets/arsiv/k/${x.f}" alt="" loading="lazy" /><small>${esc(x.a)}</small></button>`).join('')
+      + '<button type="button" class="lay-card sug more"><span>↻</span><small>Başka öneriler</small></button>';
+    g.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { layPop.hidden = true; placeImage(arsivSrc(b.dataset.f)); }; });
+    g.querySelector('.more').onclick = openSuggest;
+    layPop.hidden = false;
+  }
+
   // Yüklemeler panelindeki görsel alanları listesi
   function buildQuick() {
     const tpl = tplOf(state.tplId), d = dataOf(tpl), bar = $('#quickBar');
@@ -831,7 +878,7 @@
     document.querySelectorAll('.rail [data-panel]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.panel === id));
     document.querySelectorAll('#panel > section[data-p]').forEach((s) => { s.hidden = s.dataset.p !== id; });
     appEl.classList.toggle('collapsed', !id);
-    if (id === 'yukle') buildUploads();
+    if (id === 'yukle') { buildUploads(); buildArsiv(); }
     if (id === 'tasarim') layoutCards($('#layoutSeg'));
     if (id === 'paylas') { shareDraft(); updateChecks(); drawGrid(); }
     if (id) $('#panel').scrollTop = 0;
@@ -1503,10 +1550,10 @@
       case 'afis': cap = `${d.baslik || d.etiket}\n🗓 ${j(fd(d.tarih, true), d.saat)}\n📍 ${d.yer || ''}\n\n[Afişteki ayrıntıları buraya yazın: konuşmacılar, program, kayıt bağlantısı.]`; break;
       default: cap = textFields(tpl, d);
     }
-    const title = oneLine(d.baslik || d.ad || d.etiket || '');
+    const title = oneLine(d.baslik || d.ad || d.program || d.pozisyon || d.soru || d.soz || d.etiket || '');
     const hasImg = tpl.fields.some((f) => (f.type === 'image' && d[f.key]) || (f.type === 'images' && d[f.key] && d[f.key].length));
     const when = [d.tarih ? fd(d.tarih) : '', d.saat, d.yer].filter(Boolean);
-    alt = `${tpl.name} görseli. ${title ? `“${title}” yazıyor. ` : ''}${when.join(', ')}${when.length ? '. ' : ''}${hasImg ? '[Fotoğrafta kim/ne görünüyor, kısaca yazın.] ' : ''}${[brand.university, brand.faculty].filter(Boolean).join(' ')}${unit ? ', ' + unit.name : ''} logolu tasarım.`;
+    alt = `${tpl.name} görseli. ${title ? `“${title}” yazıyor. ` : ''}${when.join(', ')}${when.length ? '. ' : ''}${hasImg ? (() => { const ph = tpl.fields.filter((f) => f.type === 'image').map((f) => arsivOf(d[f.key])).filter(Boolean)[0]; return ph ? 'Fotoğrafta: ' + ph.a.charAt(0).toLocaleLowerCase('tr-TR') + ph.a.slice(1) + '. ' : '[Fotoğrafta kim/ne görünüyor, kısaca yazın.] '; })() : ''}${[brand.university, brand.faculty].filter(Boolean).join(' ')}${unit ? ', ' + unit.name : ''} logolu tasarım.`;
     const tags = String(brand.hashtags || '').split(/[\s,]+/).filter(Boolean).map((t) => (t.startsWith('#') ? t : '#' + t));
     if (unit) tags.push(camel(unit.name.replace(/Bölümü$/, '').split('·')[0]));
     if (TOPIC[tpl.id]) tags.push('#' + (TOPIC[tpl.id] === 'Haber' && brand.short ? camel(brand.short).slice(1) + 'Haber' : TOPIC[tpl.id]));
