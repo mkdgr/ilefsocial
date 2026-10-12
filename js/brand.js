@@ -17,7 +17,8 @@ window.BRAND_DEFAULT = {
   faculty: 'İletişim Fakültesi',
   web: 'ilef.ankara.edu.tr',
   social: '@ilefsocial',
-  short: 'İLEF', // dosya adları, üst çubuk ve etiketlerde
+  short: 'İLEF',
+  sembol: 'assets/logos/hitit-gunes.svg', // arka plan filigranı (Hitit güneşi); kurum değişince değiştirilir ya da boş bırakılır // dosya adları, üst çubuk ve etiketlerde
   hashtags: '#AnkaraÜniversitesi #İLEF', // paylaşım metnine her zaman eklenen etiketler
   colors: {
     red: '#ED1C24', // ilef logosu
@@ -110,5 +111,6 @@ window.MOTIFS = {
   piksel: 'Piksel ızgara · yeni medya, dijital',
   halka: 'Yayın halkaları · genel duyuru',
   isik: 'Işık huzmeleri · ödül, başarı',
+  gunes: 'Kurum sembolü · Hitit güneşi filigranı',
   yok: 'Motif yok',
 };

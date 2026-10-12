@@ -961,7 +961,7 @@
   });
 
   T.push({
-    id: 'kisi', cat: 'insan', name: 'Atama / Tebrik', desc: 'Yeni görev, atama, tebrik, hoş geldiniz', mesh: 'kurumsal', motif: 'yok', ground: 'lacivert',
+    id: 'kisi', cat: 'insan', name: 'Atama / Tebrik', desc: 'Yeni görev, atama, tebrik, hoş geldiniz', mesh: 'kurumsal', motif: 'gunes', ground: 'lacivert',
     layouts: ['portre', 'bolunmus', 'kutu', 'merkez'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Dekan yardımcımız', 'Yeni görev', 'Atama', 'Tebrikler', 'Hoş geldiniz', 'Emekliliğe uğurlarken'], def: 'Dekan yardımcımız' },
@@ -1314,7 +1314,7 @@
   });
 
   T.push({
-    id: 'tanitim', cat: 'bilgi', name: 'Tanıtım / Tercih', desc: 'Bölüm ve program tanıtımı, tercih dönemi', mesh: 'kurumsal', motif: 'halka', ground: 'lacivert',
+    id: 'tanitim', cat: 'bilgi', name: 'Tanıtım / Tercih', desc: 'Bölüm ve program tanıtımı, tercih dönemi', mesh: 'kurumsal', motif: 'gunes', ground: 'lacivert',
     layouts: ['kutu', 'tam', 'bolunmus', 'merkez'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Tercih dönemi', 'Bölümümüzü tanıyın', 'Programımızı tanıyın', 'Yeni program'], def: 'Tercih dönemi' },

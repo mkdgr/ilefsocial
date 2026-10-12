@@ -11,6 +11,7 @@ Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada
 - **Beyaz ve tonları.** Arkada, beyaz tülün ardından köşelerde görünen yumuşak renk lekeleri (mesh) ve dağınık nokta dokusu.
 - **Tek marka öğesi: kırmızı kare.** ilef logosundan gelir; tür işareti, tarih kutusu ve takvimde son gün olarak kullanılır. Başlıklar siyahtır.
 - **Tek yazı ailesi: Instrument Sans** (400–700). Başlıklarda sıkı harf aralığı.
+- **Kurum sembolü:** Hitit güneşi, dev boyutta ve yarısı kadraj dışında saydam filigran olarak (Atama/Tebrik ve Tanıtım’da otomatik; diğerlerinde Tasarım → Konu motifi). Başka kurum için `brand.js` içindeki `sembol` değiştirilir.
 - **Konu motifleri** — rastgele değil, gönderinin konusunu anlatır: film şeridi, başlıktan üretilen ses dalgası, gazete ızgarası, takvim, bağlantı ağı, piksel ızgara, yayın halkaları, ışık huzmeleri. Bölüm seçilince o bölümün motifi otomatik gelir (Gazetecilik → gazete, RTS → film, HİT/Reklam → ağ, YMİ → piksel, Radyo İlef → ses).
 - **Kırmızı zemin** yalnızca büyük haber için (akışta 9 gönderide en fazla 1).
 - **Izgarada ritim:** dört zemin (beyaz, lacivert, siyah, kırmızı) ve dört yerleşim dönüşümlü kullanılır:

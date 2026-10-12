@@ -172,6 +172,34 @@
     }
     ctx.globalAlpha = 1;
   };
+  // Kurum sembolü (Ankara Üniversitesi: Hitit güneşi): dev boyutta, yarısı kadraj dışında, saydam filigran.
+  // Videoda çok yavaş döner. Renk zemine göre: açık ve lacivertte kendi altın rengi, kırmızıda beyaz.
+  const tintCache = new Map();
+  M.gunes = (ctx, env) => {
+    const src = env.brand.sembol;
+    const img = src ? env.getImage(src) : null;
+    if (!img) return;
+    const { W, H, u, pal, t } = env;
+    const D2 = Math.max(W, H) * (env.wide ? 0.95 : 1.05);
+    let im = img;
+    if (pal.red || pal.mono) {
+      const key = src + (pal.red ? 'w' : 'g');
+      if (!tintCache.has(key)) {
+        const c = document.createElement('canvas'); c.width = 900; c.height = Math.round(900 * (img.naturalHeight || 1) / (img.naturalWidth || 1));
+        const x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, c.width, c.height);
+        tintCache.set(key, c);
+      }
+      im = tintCache.get(key);
+    }
+    const ar = (img.naturalHeight || 1) / (img.naturalWidth || 1);
+    const cx = W * (env.wide ? 0.98 : 1.0), cy = env.wide ? H * 0.62 : H * 0.6;
+    ctx.save();
+    ctx.globalAlpha = pal.red ? 0.08 : pal.mono ? 0.05 : pal.dark ? (pal.variant === 'lacivert' ? 0.16 : 0.11) : 0.18;
+    ctx.translate(cx, cy); ctx.rotate(isFinite(t) ? t * 0.025 : 0);
+    ctx.drawImage(im, -D2 / 2, -D2 * ar / 2, D2, D2 * ar);
+    ctx.restore();
+    void u;
+  };
   M.isik = (ctx, env, col) => {
     const { W, H, t } = env;
     const cx = W * 0.5, cy = -80 * env.u, rot = isFinite(t) ? Math.sin(t * 0.6) * 0.08 : 0, L = Math.max(W, H) * 1.7;

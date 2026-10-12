@@ -36,6 +36,7 @@
       social: s.social != null ? s.social : def.social,
       short: s.short != null ? s.short : def.short,
       hashtags: s.hashtags != null ? s.hashtags : def.hashtags,
+      sembol: s.sembol !== undefined ? s.sembol : def.sembol,
       colors: Object.assign(def.colors, s.colors || {}),
       removed: [...removed],
     });
@@ -1154,7 +1155,7 @@
     renderTo(document.createElement('canvas'), fmt, Infinity);
     await whenImagesSettled();
   }
-  function preloadLogos() { brand.logos.forEach((l) => { if (l.dark) getImage(l.dark); if (l.light) getImage(l.light); }); }
+  function preloadLogos() { brand.logos.forEach((l) => { if (l.dark) getImage(l.dark); if (l.light) getImage(l.light); }); if (brand.sembol) getImage(brand.sembol); }
 
   async function exportPng(fmt, slide) {
     await ready(fmt);
@@ -1345,7 +1346,7 @@
   // Başka bir fakülte/kurum için boş kimlik: logolar ve adlar sıfırdan girilir
   $('#btnNewOrg').onclick = () => {
     if (!ask('Mevcut kurum ayarları kapatılıp boş bir kurum kimliği başlatılsın mı? (Önce “Kurum paketini dışa aktar” ile yedekleyebilirsiniz.)')) return;
-    brand = mergeBrand({ university: '', faculty: '', short: '', web: '', social: '', hashtags: '', removed: BRAND_DEFAULT.logos.map((l) => l.id),
+    brand = mergeBrand({ university: '', faculty: '', short: '', web: '', social: '', hashtags: '', sembol: null, removed: BRAND_DEFAULT.logos.map((l) => l.id),
       logos: [{ id: 'kurum-universite', name: 'Üniversite logosu', group: 'ana', dark: null, light: null }, { id: 'kurum-fakulte', name: 'Fakülte logosu', group: 'ana', dark: null, light: null }] });
     state.unitId = ''; state.badge = false;
     saveBrand(); buildBrandDlg(); applyChrome();
