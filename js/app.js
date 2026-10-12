@@ -455,11 +455,7 @@
     ed.style.left = left + box.scrollLeft + 'px'; ed.style.top = Math.max(8, top) + box.scrollTop + 'px';
   }
   function setVal(key, v) { const d = dataOf(tplOf(state.tplId)); d[key] = v; saveState(); scheduleRender(); }
-  async function pickPhoto(key) {
-    const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*';
-    i.onchange = async () => { const file = i.files[0]; if (!file) return; try { const src = await loadPhoto(file); addUpload(src); placeImage(src, key); } catch (x) { status('Görsel okunamadı.', true); } };
-    i.click();
-  }
+  function pickPhoto(key) { openPhotoPicker(key, 'set'); }
   function openEditor(key) {
     const f = fieldOf(key); if (!f) return;
     const d = dataOf(tplOf(state.tplId));
@@ -504,6 +500,7 @@
     if (edKey && !ed.contains(e.target) && !hitLayer.contains(e.target) && !$('#ctxBar').contains(e.target)) closeEditor();
     if (!e.target.closest('.menu')) closeMenus();
     if (!layPop.hidden && !layPop.contains(e.target) && !e.target.closest('.lay-btn')) layPop.hidden = true;
+    if (!pickPop.hidden && !pickPop.contains(e.target) && !e.target.closest('.pick-trigger') && !e.target.closest('#ctxBar') && !e.target.closest('#slideBar') && !e.target.closest('#layPop')) { pickPop.hidden = true; pick = null; }
   });
 
   // ------------------------------------------------------------ Bağlam araç çubuğu (seçime göre değişir)
@@ -537,9 +534,12 @@
       }
       // boş fotoğraf alanı varsa doğrudan ekleme
       const emptyImg = tpl.fields.find((f) => f.type === 'image' && !d[f.key]);
-      if (emptyImg) { btn('＋ Fotoğraf ekle', () => pickPhoto(emptyImg.key), '', shortLabel(emptyImg)); }
-      if (ARS.length && !tpl.mono && tpl.fields.some((f) => (f.type === 'image' && !f.poster) || f.type === 'images')) btn('✨ Arşivden öner', openSuggest, 'lay-btn', 'Fakülte arşivinden bu içeriğe uygun fotoğraflar');
-      if (emptyImg || ARS.length) sep();
+      const imgF = tpl.fields.filter((f) => f.type === 'image'), manyF = tpl.fields.find((f) => f.type === 'images');
+      if (imgF.length || manyF) {
+        const target = emptyImg ? [emptyImg.key, 'set'] : manyF ? [null, 'page'] : [imgF[0].key, 'set'];
+        btn('🖼 Fotoğraf', () => openPhotoPicker(target[0], target[1]), 'lay-btn pick-trigger', 'Medya kütüphanesinden seçin ya da bilgisayardan yükleyin');
+        sep();
+      }
       const pages = Array.isArray(d.fotolar) ? d.fotolar : null;
       if (pages && pages.length) {
         add('<span class="hint">Fotoğraf sayfaları:</span>');
@@ -637,11 +637,7 @@
     const caps = String(d.aciklamalar || '').split('\n');
     if (i < 0 || !arr[i]) return;
     const swap = (a, b) => { [arr[a], arr[b]] = [arr[b], arr[a]]; [A[a], A[b]] = [A[b], A[a]]; [caps[a], caps[b]] = [caps[b] || '', caps[a] || '']; d.aciklamalar = caps.join('\n').replace(/\n+$/, ''); };
-    if (op === 'degistir') {
-      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-      inp.onchange = async () => { const file = inp.files[0]; if (!file) return; try { arr[i] = await loadPhoto(file, 2000); A[i] = {}; addUpload(arr[i]); saveState(); refresh(); } catch (x) { status('Fotoğraf okunamadı.', true); } };
-      inp.click(); return;
-    }
+    if (op === 'degistir') { openPhotoPicker('_sayfa', 'replacePage'); return; }
     if (op === 'hepsi') { const src = A[i] || {}; arr.forEach((_, j) => { A[j] = Object.assign({}, A[j], { fit: src.fit, z: src.z }); }); saveState(); scheduleRender(); schedulePages(); status(`Ayar ${arr.length} sayfaya uygulandı.`); return; }
     if (op === 'sol' && i > 0) { swap(i, i - 1); state.slide--; }
     else if (op === 'sag' && i < arr.length - 1) { swap(i, i + 1); state.slide++; }
@@ -707,7 +703,7 @@
     if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); setZoom(curK() * 1.2); return; }
     if (mod && e.key === '-') { e.preventDefault(); setZoom(curK() / 1.2); return; }
     if (mod && e.key === '0') { e.preventDefault(); setZoom(null); return; }
-    if (e.key === 'Escape') { if (!layPop.hidden) layPop.hidden = true; else if (edKey) closeEditor(); else if (textKey) endText(); else if (document.querySelector('.menu-pop:not([hidden])')) closeMenus(); else select(null); return; }
+    if (e.key === 'Escape') { if (!pickPop.hidden) { pickPop.hidden = true; pick = null; } else if (!layPop.hidden) layPop.hidden = true; else if (edKey) closeEditor(); else if (textKey) endText(); else if (document.querySelector('.menu-pop:not([hidden])')) closeMenus(); else select(null); return; }
     if (isTyping() || !selKey) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSel(); return; }
     if (e.key === 'Enter') { e.preventDefault(); activate(selKey); return; }
@@ -723,6 +719,14 @@
   // ------------------------------------------------------------ Yüklemeler
   const uploads = [];
   function addUpload(src) { if (!uploads.includes(src)) uploads.unshift(src); buildUploads(); }
+  function myUploads() {
+    const seen = new Set(uploads), list = uploads.slice();
+    Object.values(state.data).forEach((d) => Object.keys(d).forEach((k) => {
+      if (!TPLS.some((t) => t.fields.some((x) => x.key === k && (x.type === 'image' || x.type === 'images')))) return;
+      [].concat(d[k]).forEach((v) => { if (typeof v === 'string' && v.startsWith('data:image') && !seen.has(v)) { seen.add(v); list.push(v); } });
+    }));
+    return list;
+  }
   function buildUploads() {
     const tpl = tplOf(state.tplId), seen = new Set(uploads), list = uploads.slice();
     Object.values(state.data).forEach((d) => Object.keys(d).forEach((k) => {
@@ -757,7 +761,6 @@
     if (!(target + '_fit' in d)) d[target + '_fit'] = 'cover';
     saveState(); refresh(); selKey = null; select(target);
     // fotoğraf eklenince yerleşim seçeneklerini öner (Canva'daki "tasarım önerileri" gibi)
-    if ((tpl.layouts || []).length > 1) setTimeout(() => openLayPop('Fotoğraf eklendi — nasıl yerleşsin?'), 350);
   }
 
   // ------------------------------------------------------------ Yerleşim seçici (canlı önizlemeli)
@@ -772,7 +775,7 @@
     el.innerHTML = items.map((it) => `<button type="button" class="lay-card" data-l="${it.id}" aria-pressed="${it.id === cur}" ${it.need ? 'data-need="1"' : ''}><canvas width="${tw * 2}" height="${th * 2}" style="aspect-ratio:${fmt.w}/${fmt.h}"></canvas><b>${esc(it.name)}</b><small>${esc(it.need ? 'Önce fotoğraf ekleyin' : it.desc)}</small></button>`).join('');
     el.querySelectorAll('[data-l]').forEach((b) => {
       b.onclick = () => {
-        if (b.dataset.need) { pickPhoto((tpl.fields.find((f) => f.type === 'image') || {}).key); return; }
+        if (b.dataset.need) { state.layouts[tpl.id] = b.dataset.l; refresh(); layPop.hidden = true; openPhotoPicker((tpl.fields.find((f) => f.type === 'image' && !f.poster) || {}).key, 'set'); return; }
         state.layouts[tpl.id] = b.dataset.l; refresh();
         el.querySelectorAll('[data-l]').forEach((x) => x.setAttribute('aria-pressed', x === b));
       };
@@ -794,7 +797,7 @@
   $('#fileUp').onchange = async (e) => {
     const files = [...e.target.files]; e.target.value = '';
     for (const file of files) { try { addUpload(await loadPhoto(file)); } catch (x) { status('Görsel okunamadı.', true); } }
-    if (files.length === 1 && uploads[0]) placeImage(uploads[0]);
+    if (files.length) status(`${files.length} fotoğraf medya kütüphanesine eklendi. Kullanmak için tıklayın ya da tuvale sürükleyin.`);
   };
   // Tuvale sürükle-bırak: yüklemelerden ya da bilgisayardan
   const wrapEl = $('#cvWrap');
@@ -840,17 +843,58 @@
       g.appendChild(img);
     });
   }
-  // Araç çubuğundan: şablona uygun fotoğrafları öner (yerleşim seçicisinin yerinde açılır)
-  function openSuggest() {
+  // ------------------------------------------------------------ Fotoğraf seçici (tek menü): medya kütüphanesi ya da bilgisayardan yükle
+  const pickPop = $('#pickPop');
+  let pick = null, pickTag = 'oneri';
+  function openPhotoPicker(key, mode = 'set') {
     if (window.innerWidth <= 900 && curPanel) openPanel(null);
-    $('#layPopTitle').textContent = 'Arşivden önerilen fotoğraflar';
-    const g = $('#layPopGrid');
-    g.innerHTML = arsivOneri(10).map((x) => `<button type="button" class="lay-card sug" data-f="${x.f}"><img src="assets/arsiv/k/${x.f}" alt="" loading="lazy" /><small>${esc(x.a)}</small></button>`).join('')
-      + '<button type="button" class="lay-card sug more"><span>↻</span><small>Başka öneriler</small></button>';
-    g.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { layPop.hidden = true; placeImage(arsivSrc(b.dataset.f)); }; });
-    g.querySelector('.more').onclick = openSuggest;
-    layPop.hidden = false;
+    layPop.hidden = true; closeEditor();
+    pick = { key, mode };
+    const f = key && fieldOf(key);
+    $('#pickTitle').textContent = mode === 'page' ? 'Sayfa fotoğrafı ekle' : mode === 'replacePage' ? 'Sayfa fotoğrafını değiştir' : f && !/^foto/i.test(shortLabel(f)) ? `${shortLabel(f)} · görsel seç` : 'Fotoğraf seç';
+    $('#pickFile').multiple = mode === 'page';
+    if (pickTag === 'yuklenen' && !myUploads().length) pickTag = 'oneri';
+    buildPicker();
+    pickPop.hidden = false; pickPop.scrollTop = 0;
   }
+  function buildPicker() {
+    const T = window.ARSIV_ETIKET || {}, up = myUploads();
+    const tags = [['oneri', '✨ Önerilen']].concat(up.length ? [['yuklenen', `Yüklediklerim (${up.length})`]] : [], ARS.length ? [['hepsi', 'Tüm arşiv']] : [], Object.keys(T).filter((k) => ARS.some((x) => x.t.includes(k))).map((k) => [k, T[k]]));
+    $('#pickTags').innerHTML = tags.map(([k, n]) => `<button type="button" class="chip" data-t="${k}" aria-pressed="${k === pickTag}">${esc(n)}</button>`).join('');
+    $('#pickTags').querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { pickTag = b.dataset.t; buildPicker(); }; });
+    const mine = up.map((src) => ({ src, th: src, a: 'Yüklediğiniz fotoğraf' }));
+    const ars = (list) => list.map((x) => ({ src: arsivSrc(x.f), th: 'assets/arsiv/k/' + x.f, a: x.a }));
+    const items = pickTag === 'yuklenen' ? mine : pickTag === 'oneri' ? mine.slice(0, 3).concat(ars(arsivOneri(12))) : pickTag === 'hepsi' ? ars(ARS) : ars(ARS.filter((x) => x.t.includes(pickTag)));
+    const g = $('#pickGrid');
+    g.innerHTML = items.length ? items.map((it, i) => `<button type="button" data-i="${i}" title="${esc(it.a)}"><img src="${it.th}" alt="${esc(it.a)}" loading="lazy" /></button>`).join('') : '<p class="muted">Bu grupta fotoğraf yok. Bilgisayardan yükleyebilirsiniz.</p>';
+    g.querySelectorAll('[data-i]').forEach((b) => { b.onclick = () => choosePhoto(items[+b.dataset.i].src); });
+  }
+  function choosePhoto(src) {
+    const p = pick; pickPop.hidden = true; pick = null;
+    if (!p) return;
+    const tpl = tplOf(state.tplId), d = dataOf(tpl);
+    if (p.mode === 'page') {
+      const many = tpl.fields.find((f) => f.type === 'images'); if (!many) return;
+      const arr = Array.isArray(d[many.key]) ? d[many.key] : (d[many.key] = []);
+      if (arr.length >= 9) { status('En fazla 9 fotoğraf sayfası eklenebilir.', true); return; }
+      arr.push(src); state.slide = arr.length; saveState(); refresh(); return;
+    }
+    if (p.mode === 'replacePage') {
+      const i = state.slide - 1, A = Array.isArray(d.fotolar_ayar) ? d.fotolar_ayar : (d.fotolar_ayar = []);
+      if (Array.isArray(d.fotolar) && d.fotolar[i]) { d.fotolar[i] = src; A[i] = {}; saveState(); refresh(); }
+      return;
+    }
+    placeImage(src, p.key);
+  }
+  $('#pickClose').onclick = () => { pickPop.hidden = true; pick = null; };
+  $('#pickFile').onchange = async (e) => {
+    const files = [...e.target.files]; e.target.value = '';
+    const srcs = [];
+    for (const file of files.slice(0, 9)) { try { const src = await loadPhoto(file, pick && pick.mode !== 'set' ? 2000 : 2400); addUpload(src); srcs.push(src); } catch (x) { status('Görsel okunamadı.', true); } }
+    if (!srcs.length) return;
+    if (pick && pick.mode === 'page') { const p = pick; srcs.forEach((src) => { pick = p; choosePhoto(src); }); }
+    else choosePhoto(srcs[0]);
+  };
 
   // Yüklemeler panelindeki görsel alanları listesi
   function buildQuick() {
@@ -943,7 +987,13 @@
       b.title = t.desc;
       b.setAttribute('aria-pressed', t.id === state.tplId);
       b.innerHTML = `<canvas width="240" height="240" data-id="${t.id}"></canvas><b>${t.name}</b>`;
-      b.onclick = () => { if (state.tplId !== t.id) { select(null); state.tplId = t.id; state.slide = 0; refresh(); } if (window.innerWidth <= 900) openPanel(null); };
+      b.onclick = () => {
+        const changed = state.tplId !== t.id;
+        if (changed) { select(null); state.tplId = t.id; state.slide = 0; refresh(); }
+        if (window.innerWidth <= 900) openPanel(null);
+        // akış: şablon → yerleşim → (gerekirse) fotoğraf
+        if ((t.layouts || []).length > 1) setTimeout(() => openLayPop(`${t.name} · yerleşim seçin`), changed ? 120 : 0);
+      };
       b.dataset.q = (t.name + ' ' + t.desc).toLocaleLowerCase('tr-TR');
       (grids[t.cat || ''] || grids[Object.keys(grids)[0]] || g).appendChild(b);
     });
@@ -1135,15 +1185,7 @@
       + (many && n < 10 ? '<button type="button" class="add" title="Sayfa ekle (fotoğraf)">+</button>' : '');
     bar.querySelectorAll('[data-s]').forEach((b) => { b.onclick = () => { if (state.slide === +b.dataset.s) return; select(null); state.slide = +b.dataset.s; buildSlides(); scheduleRender(); }; });
     const addB = bar.querySelector('.add');
-    if (addB) addB.onclick = () => {
-      const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.multiple = true;
-      i.onchange = async () => {
-        const d = dataOf(tpl), arr = Array.isArray(d[many.key]) ? d[many.key] : (d[many.key] = []);
-        for (const file of [...i.files].slice(0, 9 - arr.length)) { try { const src = await loadPhoto(file, 2000); arr.push(src); addUpload(src); } catch (x) { status('Fotoğraf okunamadı.', true); } }
-        state.slide = slideCount() - 1; saveState(); refresh();
-      };
-      i.click();
-    };
+    if (addB) addB.onclick = () => openPhotoPicker(null, 'page');
     $('#btnAll').innerHTML = n > 1 ? `<i>▤</i>Tüm sayfalar <small>${n} PNG</small>` : '<i>▤</i>Tüm formatlar <small>5 PNG</small>';
     schedulePages();
   }

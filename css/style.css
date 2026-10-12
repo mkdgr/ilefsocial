@@ -398,3 +398,21 @@ body.locked > .topbar, body.locked > .app { visibility: hidden; }
 .gate-box small { color: #b4232c; min-height: 18px; }
 .gate-box.shake { animation: shake .35s; }
 @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
+/* Fotoğraf seçici */
+.pick-pop { position: absolute; top: 60px; left: 12px; right: 12px; max-width: 860px; max-height: calc(100% - 140px); overflow-y: auto; z-index: 26; background: #fff; border-radius: 12px; box-shadow: 0 16px 48px rgba(10,20,40,.22), 0 0 0 1px rgba(10,20,40,.06); padding: 12px 14px 14px; }
+.pick-src { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13.5px; }
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.pick-grid button { padding: 0; border: 0; background: none; border-radius: 6px; overflow: hidden; }
+.pick-grid img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; transition: transform .15s; }
+.pick-grid button:hover img { transform: scale(1.04); }
+.pick-grid button:hover { outline: 2px solid var(--sel); }
+@media (max-width: 900px) {
+  .pick-pop { position: fixed; top: auto; left: 0; right: 0; bottom: var(--tabs); max-width: none; max-height: 72vh; border-radius: 16px 16px 0 0; z-index: 37; }
+  .pick-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+  #pickTags { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  #pickTags .chip { flex: none; }
+  .pick-src .muted { display: none; }
+}

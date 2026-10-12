@@ -66,7 +66,7 @@
       <button type="button" data-panel="sablon" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Şablonlar</span></button>
       <button type="button" data-panel="tasarim"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.3" fill="currentColor"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="10" r="1.3" fill="currentColor"/><path d="M12 21a3 3 0 0 1 0-6h1.5"/></svg><span>Tasarım</span></button>
       <button type="button" data-panel="metin"><svg viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg><span>Metin</span></button>
-      <button type="button" data-panel="yukle"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0-4.5 4.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span>Yüklemeler</span></button>
+      <button type="button" data-panel="yukle"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg><span>Medya</span></button>
       <button type="button" data-panel="birim"><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6"/></svg><span>Birim</span></button>
       <button type="button" data-panel="paylas"><svg viewBox="0 0 24 24"><path d="M5 12.5 9.5 17 19 7"/></svg><span>Yayın</span></button>
     </nav>
@@ -97,11 +97,12 @@
         <form id="fields" class="fields" autocomplete="off"></form>
       </section>
       <section data-p="yukle" hidden>
-        <h2>Yüklemeler</h2>
-        <label class="btnlike primary block">Dosya yükle<input type="file" id="fileUp" accept="image/*" multiple hidden /></label>
+        <h2>Medya kütüphanesi</h2>
+        <p class="note">Yüklediğiniz fotoğraflar buraya eklenir, tasarıma kendiliğinden girmez. Bir fotoğrafa tıklayın ya da tuvale sürükleyin.</p>
+        <label class="btnlike primary block">⤒ Bilgisayardan yükle<input type="file" id="fileUp" accept="image/*" multiple hidden /></label>
         <small class="sublabel">Bu tasarımdaki görsel alanları</small>
         <div class="quickbar" id="quickBar"></div>
-        <small class="sublabel">Görseller <span class="muted">— tıklayın ya da tuvale sürükleyin</span></small>
+        <small class="sublabel">Yüklediklerim</small>
         <div class="up-grid" id="upGrid"></div>
         <div id="arsivWrap">
           <small class="sublabel">Fakülte arşivi <span class="muted">— tıklayın ya da tuvale sürükleyin</span></small>
@@ -159,6 +160,15 @@
       <div class="lay-pop" id="layPop" hidden role="dialog" aria-label="Yerleşim seç">
         <div class="lay-pop-head"><b id="layPopTitle">Yerleşim</b><button type="button" class="ghost" id="layPopClose" aria-label="Kapat">✕</button></div>
         <div class="lay-grid row" id="layPopGrid"></div>
+      </div>
+      <div class="pick-pop" id="pickPop" hidden role="dialog" aria-label="Fotoğraf seç">
+        <div class="lay-pop-head"><b id="pickTitle">Fotoğraf seç</b><button type="button" class="ghost" id="pickClose" aria-label="Kapat">✕</button></div>
+        <div class="pick-src">
+          <label class="btnlike primary">⤒ Bilgisayardan yükle<input type="file" id="pickFile" accept="image/*" hidden /></label>
+          <span class="muted">ya da medya kütüphanesinden seçin</span>
+        </div>
+        <div class="chips arsiv-tags" id="pickTags"></div>
+        <div class="pick-grid" id="pickGrid"></div>
       </div>
       <div class="stage-canvas" id="stageBox">
         <div class="canvas-wrap" id="cvWrap">
