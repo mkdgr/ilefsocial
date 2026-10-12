@@ -513,6 +513,9 @@
         layBtn();
         sep();
       }
+      // boş fotoğraf alanı varsa doğrudan ekleme
+      const emptyImg = tpl.fields.find((f) => f.type === 'image' && !d[f.key]);
+      if (emptyImg) { btn('＋ Fotoğraf ekle', () => pickPhoto(emptyImg.key), '', shortLabel(emptyImg)); sep(); }
       btn('▶ Animasyon', () => { if (!playing) animate(4.5); });
       add('<span class="hint">Düzenlemek için görseldeki bir öğeye tıklayın.</span>');
       return;

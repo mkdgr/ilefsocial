@@ -346,7 +346,7 @@
     return { key: o.key || env.keyOf(num), gap: o.gap, layout(ctx, w) {
       const big = (o.size || 230) * u * env.fs;
       const f = D.fit(ctx, num, { weight: 600, family: brand.fonts.head, max: big, min: 80 * u, maxW: w, maxH: big * 1.05, lh: 1.0, lsEm: -0.05, maxLines: 1 });
-      const sz = 32 * u * Math.min(env.fs, 1.15);
+      const sz = 34 * u * Math.min(env.fs, 1.15);
       return { h: f.h + (sub ? sz * 1.6 : 0), draw(ctx, x, y, bw) {
         D.drawFit(ctx, f, x - f.size * 0.035, y, bw, 'left', pal.fg);
         if (sub) { ctx.fillStyle = pal.sub; ctx.font = D.font(400, sz, brand.fonts.body); ctx.textBaseline = 'top'; ctx.fillText(sub, x, y + f.h + sz * 0.3, bw); ctx.textBaseline = 'alphabetic'; }
@@ -495,50 +495,31 @@
   };
 
   // Son başvuru: solda tarih ve bağlantı, sağda o ayın takvimi (gün kırmızı karede)
+  // Son başvuru: tarih kartı (çizgi çerçeve + kırmızı kare) ve yanında okunaklı tarih + bağlantı
   B.deadline = (env, dateStr, label, link, o = {}) => {
     const p = D.parseDate(dateStr);
     if (!p) return null;
     const { u, pal, brand } = env;
-    return { key: o.key || env.keyOf(dateStr), gap: o.gap != null ? o.gap : 44, side: true, layout(ctx, w) {
-      const narrow = w < 640 * u;
-      const calW = narrow ? w : Math.min(w * 0.46, 470 * u * Math.min(env.fs, 1.15)), cw = calW / 7, ch = cw * 0.86;
-      const first = (new Date(p.y, p.mo, 1).getDay() + 6) % 7; // Pazartesi = 0
-      const days = new Date(p.y, p.mo + 1, 0).getDate();
-      const rows = Math.ceil((first + days) / 7);
-      const head = narrow ? 230 * u * Math.min(env.fs, 1.15) : 0;
-      const h = narrow ? head + 30 * u + rows * ch : Math.max(30 * u + rows * ch, 250 * u);
-      return { h, draw(ctx, x, y, bw) {
-        const fz = 30 * u * Math.min(env.fs, 1.15);
+    return { key: o.key || env.keyOf(dateStr), gap: o.gap != null ? o.gap : 44, layout(ctx, w) {
+      const k = Math.min(env.fs, 1.15);
+      const s = Math.min(w * 0.42, 270 * u * k);
+      const tx = s + 44 * u, tw = w - tx;
+      const big = 52 * u * k, mid = 30 * u * k;
+      ctx.font = D.font(500, mid, brand.fonts.body);
+      const linkLines = link ? D.wrap(ctx, String(link), tw).slice(0, 2) : [];
+      return { h: s, draw(ctx, x, y) {
+        dateFrame(ctx, env, p, { x, y, s, ink: pal.fg, red: env.brand.colors.red, label: p.weekday, foot: p.month });
+        // yan metin kartın ortasına hizalı: "Son başvuru" + bağlantı
+        ctx.font = D.font(600, big, brand.fonts.head);
+        const lab = D.wrap(ctx, label || 'Son başvuru', tw).slice(0, 2);
+        const hh = lab.length * big * 1.08 + (linkLines.length ? mid * 0.9 + linkLines.length * mid * 1.3 : 0);
+        let yy = y + (s - hh) / 2;
         ctx.textBaseline = 'top';
-        ctx.fillStyle = pal.accent; ctx.fillRect(x, y + fz * 0.23, fz * 0.74, fz * 0.74);
-        ctx.fillStyle = pal.fg; ctx.font = D.font(600, fz, brand.fonts.body); ctx.fillText(label || 'Son başvuru', x + fz * 1.29, y + fz * 0.1);
-        const big = 88 * u * Math.min(env.fs, 1.15);
-        const tw = narrow ? bw : bw - calW - 40 * u;
-        D.ls(ctx, -0.04 * big); ctx.font = D.font(600, big, brand.fonts.head); ctx.fillText(`${p.d} ${p.month}`, x - big * 0.03, y + fz * 1.7, tw); D.ls(ctx, 0);
-        if (link) {
-          ctx.fillStyle = pal.sub; ctx.font = D.font(500, 26 * u * Math.min(env.fs, 1.1), brand.fonts.body);
-          const parts = String(link).split(/(?<=\/)/);
-          const lines = []; let cur = '';
-          parts.forEach((pt) => { if (ctx.measureText(cur + pt).width > tw - 20 * u && cur) { lines.push(cur); cur = pt; } else cur += pt; });
-          if (cur) lines.push(cur);
-          lines.slice(0, narrow ? 1 : 3).forEach((l, i) => ctx.fillText(l, x, y + fz * 1.7 + big * 1.15 + i * 34 * u, tw));
-        }
-        // takvim
-        const cx = x + bw - calW, cy = y + head + 30 * u;
-        ctx.fillStyle = pal.grey; ctx.font = D.font(600, 20 * u, brand.fonts.body);
-        ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'].forEach((d, k) => ctx.fillText(d, cx + k * cw + 8 * u, y + head));
-        ctx.strokeStyle = pal.motif; ctx.lineWidth = 1.2 * u;
-        ctx.beginPath();
-        for (let r = 0; r <= rows; r++) { ctx.moveTo(cx, cy + r * ch); ctx.lineTo(cx + calW, cy + r * ch); }
-        for (let c = 0; c <= 7; c++) { ctx.moveTo(cx + c * cw, cy); ctx.lineTo(cx + c * cw, cy + rows * ch); }
-        ctx.stroke();
-        for (let d = 1; d <= days; d++) {
-          const i = first + d - 1, r = Math.floor(i / 7), c = i % 7;
-          if (d === p.d) { ctx.save(); ctx.globalAlpha *= D.prog(env.t, 1.2, 0.5); ctx.fillStyle = pal.accent; ctx.fillRect(cx + c * cw, cy + r * ch, cw, ch); ctx.restore(); }
-          ctx.fillStyle = d === p.d ? pal.accentFg : pal.grey;
-          ctx.font = D.font(d === p.d ? 700 : 500, 21 * u, brand.fonts.body);
-          ctx.fillText(String(d), cx + c * cw + 8 * u, cy + r * ch + 8 * u);
-        }
+        D.ls(ctx, -0.03 * big); ctx.fillStyle = pal.fg;
+        lab.forEach((l) => { ctx.fillText(l, x + tx, yy, tw); yy += big * 1.08; }); D.ls(ctx, 0);
+        yy += mid * 0.9;
+        ctx.fillStyle = pal.sub; ctx.font = D.font(500, mid, brand.fonts.body);
+        linkLines.forEach((l, i) => ctx.fillText(l, x + tx, yy + i * mid * 1.3, tw));
         ctx.textBaseline = 'alphabetic';
       } };
     } };
@@ -955,6 +936,7 @@
 
   T.push({
     id: 'vefat', cat: 'ozel', name: 'Vefat / Taziye', desc: 'Vefat, başsağlığı ve anma — siyah zemin, renksiz, hareketsiz', mesh: 'yok', motif: 'yok', mono: true, calm: true,
+    layouts: ['portre', 'kutu'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Üst yazı', type: 'select', options: ['Vefat ve başsağlığı', 'Başsağlığı', 'Saygıyla anıyoruz', 'Anma'], def: 'Vefat ve başsağlığı' },
       { key: 'foto', label: 'Fotoğraf (siyah-beyaz gösterilir)', type: 'image' },
@@ -965,7 +947,7 @@
     ],
     render(ctx, d, env) {
       compose(ctx, env, {
-        photo: photoOf(env, d, 'foto'), photoShare: env.tall ? 0.4 : 0.44,
+        layout: env.layout, photo: photoOf(env, d, 'foto'), photoShare: env.tall ? 0.4 : 0.44,
         top: [B.cat(env, d.etiket, { ribbon: true }), B.title(env, d.ad, { gap: 26, max: 104, weight: 500, maxLines: 2, flex: 0 }), B.lead(env, d.yillar, { gap: 10, color: 'grey', flex: 0, maxLines: 1 }), B.lead(env, d.metin, { gap: 34, flex: 0 })],
         bottom: [], footL: [env.brand.university, env.brand.faculty].filter(Boolean).join(' '), valign: 'center',
       });

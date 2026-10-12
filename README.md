@@ -26,7 +26,7 @@ Renk paleti, font kiti, logolar ve kurallar için: **`kimlik.html`** (uygulamada
 
 | Grup | Türler |
 |---|---|
-| Duyuru ve başvuru | Duyuru · Son tarih / Başvuru (dev tarih kartı ya da ay takvimi) · Rakamla duyuru · Staj / İş / Burs ilanı · Akademik takvim |
+| Duyuru ve başvuru | Duyuru · Son tarih / Başvuru (dev tarih kartı ya da kutulu) · Rakamla duyuru · Staj / İş / Burs ilanı · Akademik takvim |
 | Etkinlik ve yayın | Etkinlik · Program / Ajanda (saat saat akış) · Geri sayım · Radyo / Podcast / Yayın · Hazır afiş |
 | Haber ve başarı | Haber · Karusel (kapak + 9 sayfa) · Ödül / Başarı (kırmızı zemin, seyrek) · Yayın / Kitap / Proje |
 | İnsanlar | Atama / Tebrik · Söz / Alıntı (mezun, öğrenci, konuk) |
