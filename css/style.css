@@ -370,3 +370,7 @@ body.dragging, body.dragging * { -webkit-user-select: none !important; user-sele
   .workfoot .status, .workfoot .zoom { display: none; }
   .toast { position: fixed; bottom: calc(var(--tabs) + 66px); }
 }
+h3.mt { margin-top: 26px; }
+.extra-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.extra-list:empty { display: none; }
+#extraMode { margin-bottom: 4px; }

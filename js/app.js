@@ -57,9 +57,10 @@
     tpl.fields.forEach((f) => { d[f.key] = f.def != null ? f.def : f.type === 'logos' || f.type === 'images' ? [] : ''; if (f.type === 'image') { d[f.key + '_fx'] = 0.5; d[f.key + '_fy'] = 0.5; d[f.key + '_fit'] = 'cover'; d[f.key + '_z'] = 1; } });
     return d;
   };
-  let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, layouts: {}, data: {}, ov: {} }, ls.get(STATE_KEY) || {});
+  let state = Object.assign({ tplId: 'duyuru', fmtId: 'post45', ground: 'oto', mesh: 'oto', motif: 'oto', badge: false, unitId: '', slide: 0, layouts: {}, data: {}, ov: {}, extra: { logos: [], mode: 'yan' } }, ls.get(STATE_KEY) || {});
   state.layouts = state.layouts || {};
   state.ov = state.ov || {};
+  state.extra = state.extra || { logos: [], mode: 'yan' };
   const tplOf = (id) => TPLS.find((t) => t.id === id) || TPLS[0];
   const fmtOf = (id) => FORMATS.find((f) => f.id === id) || FORMATS[0];
   // Aynı nesne korunur (form alanları bu nesneye yazar); eksik alanlar varsayılanla tamamlanır
@@ -145,7 +146,7 @@
   function renderTo(c, fmt, t, tpl = tplOf(state.tplId), data, slide, hits, lay) {
     if (c.width !== fmt.w) c.width = fmt.w;
     if (c.height !== fmt.h) c.height = fmt.h;
-    return Studio.render(c.getContext('2d'), { tpl, hits, data: data || dataOf(tpl), layout: lay || state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), getImage, ov: ovFor(tpl.id, fmt.id), editing: c === cv ? textKey : null });
+    return Studio.render(c.getContext('2d'), { tpl, hits, data: data || dataOf(tpl), layout: lay || state.layouts[tpl.id] || 'oto', ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, slide: slide != null ? slide : state.slide, fmt, brand, t, unit: unitOf(), extra: state.extra, getImage, ov: ovFor(tpl.id, fmt.id), editing: c === cv ? textKey : null });
   }
   // Önizleme canvas'ını sahne kutusuna sığdır
   const stageBox = $('#stageBox');
@@ -196,7 +197,7 @@
   let showSafe = false; // grup şeridi seçiliyken güvenli alan gösterilir
   let edKey = null, selKey = null, textKey = null, lastHits = [], merged = new Map(), drag = null;
   // Şablon alanları + topluca taşınabilen şeritler (logo şeridi, alt bilgi)
-  const GROUPS = { _imza: { key: '_imza', label: 'Logo şeridi', type: 'group' }, _alt: { key: '_alt', label: 'Alt bilgi şeridi', type: 'group' } };
+  const GROUPS = { _imza: { key: '_imza', label: 'Logo şeridi', type: 'group' }, _alt: { key: '_alt', label: 'Alt bilgi şeridi', type: 'group' }, _sayfa: { key: '_sayfa', label: 'Sayfa fotoğrafı', type: 'pageimg' } };
   const fieldOf = (key) => GROUPS[key] || tplOf(state.tplId).fields.find((f) => f.key === key);
   const scaleK = () => cv.clientWidth / fmtOf(state.fmtId).w;
   const isTyping = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable); };
@@ -312,8 +313,9 @@
     const wasSel = selKey === key;
     select(key);
     const p = toCanvas(e), d = dataOf(tplOf(state.tplId));
-    const pan = f.type === 'image' && wasSel && d[key] && (key + '_fx') in d && key !== 'afis';
-    drag = { mode: h.movable ? 'move' : pan ? 'pan' : 'none', key, p0: p, h0: { ...h }, o0: { ...curOv(key) }, f0: pan ? { x: d[key + '_fx'], y: d[key + '_fy'] } : null, moved: false, wasSel, id: e.pointerId };
+    const cfg = wasSel ? pc(key) : null, pan = !!cfg; void d;
+    const g = (k) => { const v = cfg && cfg.get(k); return v != null ? v : 0.5; };
+    drag = { mode: h.movable ? 'move' : pan ? 'pan' : 'none', key, p0: p, h0: { ...h }, o0: { ...curOv(key) }, f0: pan ? { x: g('fx'), y: g('fy') } : null, moved: false, wasSel, id: e.pointerId };
     try { hitLayer.setPointerCapture(e.pointerId); } catch (x) { /* yok say */ }
   });
   selBox.addEventListener('pointerdown', (e) => {
@@ -334,8 +336,8 @@
       const r = snapMove(h0, o0, dx, dy, p.k);
       setOvLive(drag.key, r);
     } else if (drag.mode === 'pan') {
-      const d = dataOf(tplOf(state.tplId)), cl = (v) => Math.max(0, Math.min(1, v)), m = photoMetrics(drag.key, h0);
-      if (m) { if (Math.abs(m.ex) > 1) d[drag.key + '_fx'] = cl(drag.f0.x + dx / m.ex); if (Math.abs(m.ey) > 1) d[drag.key + '_fy'] = cl(drag.f0.y + dy / m.ey); }
+      const c = pc(drag.key), cl = (v) => Math.max(0, Math.min(1, v)), m = photoMetrics(drag.key, h0);
+      if (c && m) { if (Math.abs(m.ex) > 1) c.set('fx', cl(drag.f0.x + dx / m.ex)); if (Math.abs(m.ey) > 1) c.set('fy', cl(drag.f0.y + dy / m.ey)); }
       scheduleRender();
     } else if (drag.mode === 'resize') {
       const c = drag.corner, s0 = o0.s || 1;
@@ -348,12 +350,26 @@
       setOvLive(drag.key, { s, dx: (o0.dx || 0) + nx - h0.x, dy: (o0.dy || 0) + ny - h0.y });
     }
   });
+  // Fotoğraf ayarları (doldur/sığdır, yakınlaştırma, odak): tekil fotoğraf alanı ya da karuselin o anki sayfası
+  function pc(key) {
+    const d = dataOf(tplOf(state.tplId));
+    if (key === '_sayfa') {
+      const i = state.slide - 1, arr = Array.isArray(d.fotolar) ? d.fotolar : [];
+      if (i < 0 || !arr[i]) return null;
+      const A = Array.isArray(d.fotolar_ayar) ? d.fotolar_ayar : (d.fotolar_ayar = []);
+      const o = A[i] || (A[i] = {});
+      return { src: arr[i], get: (p) => o[p], set: (p, v) => { o[p] = v; } };
+    }
+    const f = fieldOf(key);
+    if (!f || f.type !== 'image' || f.poster || !d[key]) return null;
+    return { src: d[key], get: (p) => d[key + '_' + p], set: (p, v) => { d[key + '_' + p] = v; } };
+  }
   // Fotoğrafın kutuya göre taşan/eksik kalan payı (kadraj kaydırma için)
   function photoMetrics(key, box) {
-    const d = dataOf(tplOf(state.tplId)), im = d[key] && getImage(d[key]);
+    const c = pc(key), im = c && getImage(c.src);
     if (!im) return null;
-    const iw = im.naturalWidth, ih = im.naturalHeight, contain = d[key + '_fit'] === 'contain';
-    const s = (contain ? Math.min(box.w / iw, box.h / ih) : Math.max(box.w / iw, box.h / ih)) * (d[key + '_z'] || 1);
+    const iw = im.naturalWidth, ih = im.naturalHeight, contain = c.get('fit') === 'contain';
+    const s = (contain ? Math.min(box.w / iw, box.h / ih) : Math.max(box.w / iw, box.h / ih)) * (c.get('z') || 1);
     return { ex: box.w - iw * s, ey: box.h - ih * s };
   }
   // sürükleme sırasında geçmişe tek tek yazmadan güncelle
@@ -374,7 +390,7 @@
 
   // Seçili öğeyi düzenle: yazılar yerinde, tarih ve fotoğraflar küçük pencerede
   function activate(key) {
-    const f = fieldOf(key), h = merged.get(key); if (!f || f.type === 'group') return;
+    const f = fieldOf(key), h = merged.get(key); if (!f || f.type === 'group' || f.type === 'pageimg') return;
     if ((f.type === 'text' || f.type === 'textarea' || f.type === 'select') && h && h.fs) startText(key);
     else openEditor(key);
   }
@@ -516,6 +532,15 @@
       // boş fotoğraf alanı varsa doğrudan ekleme
       const emptyImg = tpl.fields.find((f) => f.type === 'image' && !d[f.key]);
       if (emptyImg) { btn('＋ Fotoğraf ekle', () => pickPhoto(emptyImg.key), '', shortLabel(emptyImg)); sep(); }
+      const pages = Array.isArray(d.fotolar) ? d.fotolar : null;
+      if (pages && pages.length) {
+        add('<span class="hint">Fotoğraf sayfaları:</span>');
+        const A = Array.isArray(d.fotolar_ayar) ? d.fotolar_ayar : (d.fotolar_ayar = []);
+        const all = pages.every((_, j) => (A[j] || {}).fit === 'contain') ? 'contain' : pages.every((_, j) => (A[j] || {}).fit !== 'contain') ? 'cover' : '';
+        const seg = add(`<span class="seg" role="group" aria-label="Tüm sayfalar"><button type="button" data-fit="cover" aria-pressed="${all === 'cover'}" title="Her fotoğraf sayfayı kaplar">Doldur</button><button type="button" data-fit="contain" aria-pressed="${all === 'contain'}" title="Her fotoğrafın tamamı görünür">Sığdır</button></span>`);
+        seg.querySelectorAll('[data-fit]').forEach((b) => { b.onclick = () => { pages.forEach((_, j) => { A[j] = Object.assign({}, A[j], { fit: b.dataset.fit }); }); saveState(); scheduleRender(); schedulePages(); buildCtx(); }; });
+        sep();
+      }
       btn('▶ Animasyon', () => { if (!playing) animate(4.5); });
       add('<span class="hint">Düzenlemek için görseldeki bir öğeye tıklayın.</span>');
       return;
@@ -536,23 +561,22 @@
       add(`<span class="hint">Sürükleyerek topluca taşıyın${fmt.safeBottom ? ' · kırmızı alanlar platform arayüzünün altında kalır' : ''}.</span>`);
       return;
     }
-    if (f.type === 'image') {
-      btn(d[selKey] ? 'Değiştir' : 'Fotoğraf seç', () => pickPhoto(selKey));
-      if (d[selKey] && (selKey + '_fx') in d) {
-        const k = selKey, fit = d[k + '_fit'] === 'contain' ? 'contain' : 'cover';
+    if (f.type === 'image' || f.type === 'pageimg') {
+      const k = selKey, page = f.type === 'pageimg', cfg = pc(k);
+      if (page) btn('Değiştir', () => pageOp('degistir'));
+      else btn(d[k] ? 'Değiştir' : (f.poster ? 'Görsel seç' : 'Fotoğraf seç'), () => pickPhoto(k));
+      if (cfg) {
         sep();
-        const seg = add(`<span class="seg" role="group" aria-label="Yerleştirme"><button type="button" data-fit="cover" aria-pressed="${fit === 'cover'}" title="Kutuyu kaplar, taşan kısım kırpılır">Doldur</button><button type="button" data-fit="contain" aria-pressed="${fit === 'contain'}" title="Fotoğrafın tamamı görünür">Sığdır</button></span>`);
-        seg.querySelectorAll('[data-fit]').forEach((b) => { b.onclick = () => { d[k + '_fit'] = b.dataset.fit; saveState(); scheduleRender(); buildCtx(); }; });
-        const z = d[k + '_z'] || 1;
-        const zr = add(`<span class="size" title="Yakınlaştır"><button type="button" aria-label="Uzaklaştır">−</button><span>%${Math.round(z * 100)}</span><button type="button" aria-label="Yakınlaştır">+</button></span>`);
-        const zs = (dir) => { d[k + '_z'] = Math.max(1, Math.min(3, Math.round((z + dir * 0.1) * 10) / 10)); saveState(); scheduleRender(); buildCtx(); };
-        zr.children[0].onclick = () => zs(-1); zr.children[2].onclick = () => zs(1);
-        btn('⌖ Ortala', () => { d[k + '_fx'] = 0.5; d[k + '_fy'] = 0.5; d[k + '_z'] = 1; saveState(); scheduleRender(); buildCtx(); }, '', 'Kadrajı ve yakınlaştırmayı sıfırla');
-        btn('Ayrıntı', () => openEditor(k), '', 'Odak ve yakınlaştırma ayarları · seçiliyken sürükleyerek kadrajı kaydırabilirsiniz');
-        if ((tpl.layouts || []).length > 1) { sep(); layBtn(); }
-        sep();
-        btn('Kaldır', () => { d[k] = ''; saveState(); select(null); refresh(); }, 'danger');
-      }
+        photoTools(cfg, add, btn);
+        if (page) btn('Tüm sayfalara uygula', () => pageOp('hepsi'), '', 'Bu sayfanın doldur/sığdır ve yakınlaştırma ayarını tüm fotoğraf sayfalarına uygular');
+        else btn('Ayrıntı', () => openEditor(k), '', 'Odak ve yakınlaştırma ayarları · seçiliyken sürükleyerek kadrajı kaydırabilirsiniz');
+        if (!page && (tpl.layouts || []).length > 1) { sep(); layBtn(); }
+      } else if (f.poster && d[k]) add('<span class="hint">Görsel kırpılmadan, tamamı görünecek biçimde yerleşir.</span>');
+      sep();
+      if (page) {
+        btn('◀', () => pageOp('sol'), '', 'Sayfayı öne al'); btn('▶', () => pageOp('sag'), '', 'Sayfayı geri al');
+        btn('Sayfayı sil', () => pageOp('sil'), 'danger');
+      } else if (d[k]) btn('Kaldır', () => { d[k] = ''; saveState(); select(null); refresh(); }, 'danger');
       return;
     }
     if (f.type === 'date') {
@@ -587,11 +611,46 @@
     if (ov.dx || ov.dy || (ov.s && ov.s !== 1)) btn('⌖ Konumu sıfırla', () => { setOv(selKey, { dx: null, dy: null, s: null }); buildCtx(); });
     btn('🗑 Sil', () => removeSel(), 'danger', 'Öğeyi sil (Delete)');
   }
+  // Doldur / Sığdır, yakınlaştırma ve ortala düğmeleri (tekil fotoğraf ve karusel sayfası için ortak)
+  function photoTools(cfg, add, btn) {
+    const fit = cfg.get('fit') === 'contain' ? 'contain' : 'cover';
+    const seg = add(`<span class="seg" role="group" aria-label="Yerleştirme"><button type="button" data-fit="cover" aria-pressed="${fit === 'cover'}" title="Alanı kaplar, taşan kısım kırpılır">Doldur</button><button type="button" data-fit="contain" aria-pressed="${fit === 'contain'}" title="Fotoğrafın tamamı görünür">Sığdır</button></span>`);
+    seg.querySelectorAll('[data-fit]').forEach((b) => { b.onclick = () => { cfg.set('fit', b.dataset.fit); saveState(); scheduleRender(); buildCtx(); }; });
+    const z = cfg.get('z') || 1;
+    const zr = add(`<span class="size" title="Yakınlaştır"><button type="button" aria-label="Uzaklaştır">−</button><span>%${Math.round(z * 100)}</span><button type="button" aria-label="Yakınlaştır">+</button></span>`);
+    const zs = (dir) => { cfg.set('z', Math.max(1, Math.min(3, Math.round((z + dir * 0.1) * 10) / 10))); saveState(); scheduleRender(); buildCtx(); };
+    zr.children[0].onclick = () => zs(-1); zr.children[2].onclick = () => zs(1);
+    btn('⌖ Ortala', () => { cfg.set('fx', 0.5); cfg.set('fy', 0.5); cfg.set('z', 1); saveState(); scheduleRender(); buildCtx(); }, '', 'Kadrajı ve yakınlaştırmayı sıfırla');
+  }
+  // Karusel sayfa işlemleri
+  function pageOp(op) {
+    const tpl = tplOf(state.tplId), d = dataOf(tpl), i = state.slide - 1;
+    const arr = Array.isArray(d.fotolar) ? d.fotolar : [], A = Array.isArray(d.fotolar_ayar) ? d.fotolar_ayar : (d.fotolar_ayar = []);
+    const caps = String(d.aciklamalar || '').split('\n');
+    if (i < 0 || !arr[i]) return;
+    const swap = (a, b) => { [arr[a], arr[b]] = [arr[b], arr[a]]; [A[a], A[b]] = [A[b], A[a]]; [caps[a], caps[b]] = [caps[b] || '', caps[a] || '']; d.aciklamalar = caps.join('\n').replace(/\n+$/, ''); };
+    if (op === 'degistir') {
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = async () => { const file = inp.files[0]; if (!file) return; try { arr[i] = await loadPhoto(file, 2000); A[i] = {}; addUpload(arr[i]); saveState(); refresh(); } catch (x) { status('Fotoğraf okunamadı.', true); } };
+      inp.click(); return;
+    }
+    if (op === 'hepsi') { const src = A[i] || {}; arr.forEach((_, j) => { A[j] = Object.assign({}, A[j], { fit: src.fit, z: src.z }); }); saveState(); scheduleRender(); schedulePages(); status(`Ayar ${arr.length} sayfaya uygulandı.`); return; }
+    if (op === 'sol' && i > 0) { swap(i, i - 1); state.slide--; }
+    else if (op === 'sag' && i < arr.length - 1) { swap(i, i + 1); state.slide++; }
+    else if (op === 'sil') {
+      const keep = { src: arr[i], cfg: A[i], cap: caps[i] };
+      arr.splice(i, 1); A.splice(i, 1); caps.splice(i, 1); d.aciklamalar = caps.join('\n');
+      state.slide = Math.min(state.slide, arr.length); select(null);
+      status('Sayfa silindi.', false, { label: 'Geri al', fn: () => { arr.splice(i, 0, keep.src); A.splice(i, 0, keep.cfg || {}); const c2 = String(d.aciklamalar || '').split('\n'); c2.splice(i, 0, keep.cap || ''); d.aciklamalar = c2.join('\n'); state.slide = i + 1; saveState(); refresh(); } });
+    } else return;
+    saveState(); refresh();
+  }
   function removeSel() {
     if (!selKey) return;
     const f = fieldOf(selKey), h = merged.get(selKey), d = dataOf(tplOf(state.tplId));
     if (f.type === 'image') { d[selKey] = ''; saveState(); select(null); refresh(); return; }
     if (f.type === 'group') { status(`${f.label} kurumsal imzanın parçasıdır, silinemez; yalnızca taşınabilir.`); return; }
+    if (f.type === 'pageimg') { pageOp('sil'); return; }
     if (h && h.movable) { const k = selKey; select(null); setOv(k, { hidden: true }); buildHidden(); status(`“${shortLabel(f)}” silindi.`, false, { label: 'Geri al', fn: () => { setOv(k, { hidden: null }); buildHidden(); } }); }
   }
   function buildHidden() {
@@ -607,7 +666,7 @@
   // ------------------------------------------------------------ Geri al / yinele
   // Anlık görüntüler yapısal kopyadır; fotoğraf (data URL) dizeleri paylaşılır, bellek şişmez.
   const cp = (o) => (Array.isArray(o) ? o.map(cp) : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, cp(v)])) : o);
-  const snap = () => cp({ tplId: state.tplId, fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, slide: state.slide, layouts: state.layouts, data: state.data, ov: state.ov });
+  const snap = () => cp({ extra: state.extra, tplId: state.tplId, fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, slide: state.slide, layouts: state.layouts, data: state.data, ov: state.ov });
   const sig = (o) => JSON.stringify(o, (k, v) => (typeof v === 'string' && v.length > 300 ? v.length + ':' + v.slice(-48) : v));
   let hist = [], hIdx = -1, histTimer, holdHistory = false, restoring = false;
   function commit() {
@@ -694,13 +753,13 @@
   }
 
   // ------------------------------------------------------------ Yerleşim seçici (canlı önizlemeli)
-  const LAY_DESC = { tam: 'Fotoğraf tüm kareyi kaplar, yazı üstünde', dev: 'Büyük tarih kartı öne çıkar', portre: 'Fotoğraf yanda, zemine erir', kutu: 'Fotoğraf kutuda, yazı ağırlıklı' };
+  const LAY_DESC = { tam: 'Fotoğraf tüm kareyi kaplar, yazı üstünde', dev: 'Büyük tarih kartı öne çıkar', portre: 'Fotoğraf yanda, zemine erir', kutu: 'Fotoğraf kutuda, yazı ağırlıklı', bolunmus: 'Fotoğraf bir yarıda kenardan kenara, yazı öbür yarıda', merkez: 'Yazı ortada, sade tipografik afiş' };
   const layOff = document.createElement('canvas');
   function layoutCards(el) {
     const tpl = tplOf(state.tplId), d = dataOf(tpl), fmt = fmtOf(state.fmtId);
     const lays = tpl.layouts || ['kutu'], auto = tpl.layoutOf ? tpl.layoutOf(d) : 'kutu', cur = state.layouts[tpl.id] || 'oto';
     const hasPhoto = tpl.fields.some((f) => f.type === 'image' && d[f.key]);
-    const items = [{ id: 'oto', name: 'Otomatik', desc: `İçeriğe göre seçilir · şu an ${LAYOUTS[auto]}` }].concat(lays.map((k) => ({ id: k, name: LAYOUTS[k], desc: LAY_DESC[k] || '', need: (k === 'tam' || k === 'portre') && !hasPhoto })));
+    const items = [{ id: 'oto', name: 'Otomatik', desc: `İçeriğe göre seçilir · şu an ${LAYOUTS[auto]}` }].concat(lays.map((k) => ({ id: k, name: LAYOUTS[k], desc: LAY_DESC[k] || '', need: (k === 'tam' || k === 'portre' || k === 'bolunmus') && !hasPhoto })));
     const tw = 150, th = Math.round((tw * fmt.h) / fmt.w);
     el.innerHTML = items.map((it) => `<button type="button" class="lay-card" data-l="${it.id}" aria-pressed="${it.id === cur}" ${it.need ? 'data-need="1"' : ''}><canvas width="${tw * 2}" height="${th * 2}" style="aspect-ratio:${fmt.w}/${fmt.h}"></canvas><b>${esc(it.name)}</b><small>${esc(it.need ? 'Önce fotoğraf ekleyin' : it.desc)}</small></button>`).join('');
     el.querySelectorAll('[data-l]').forEach((b) => {
@@ -868,7 +927,23 @@
 
   const facultyLogo = () => brand.logos.filter((l) => l.group === 'ana').slice(-1)[0];
   const logoSrc = (l) => { const src = l.light || l.dark; return src ? (window.LOGO_DATA && window.LOGO_DATA[src]) || src : null; };
+  function buildExtra() {
+    const ex = state.extra;
+    $('#extraMode').querySelectorAll('[data-m]').forEach((b) => { b.setAttribute('aria-pressed', ex.mode === b.dataset.m); b.onclick = () => { ex.mode = b.dataset.m; saveState(); buildExtra(); scheduleRender(); }; });
+    const el = $('#extraList');
+    el.innerHTML = ex.logos.map((src, i) => `<span class="mini"><img src="${src}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('');
+    el.querySelectorAll('[data-i]').forEach((b) => { b.onclick = () => { ex.logos.splice(+b.dataset.i, 1); saveState(); buildExtra(); scheduleRender(); }; });
+  }
+  $('#fileExtra').onchange = async (e) => {
+    const files = [...e.target.files]; e.target.value = '';
+    for (const file of files.slice(0, 4 - state.extra.logos.length)) {
+      try { state.extra.logos.push(await loadLogo(file)); } catch (x) { status(x.message === 'ai' ? 'Illustrator dosyası yerine SVG/PNG yükleyin.' : 'Logo okunamadı.', true); }
+    }
+    if (state.extra.logos.length >= 4) status('En fazla 4 ortak logo eklenebilir.');
+    saveState(); buildExtra(); scheduleRender();
+  };
   function buildUnits() {
+    buildExtra();
     const g = $('#unitGrid');
     if (!unitOf()) state.unitId = '';
     const ilef = facultyLogo();
@@ -1162,7 +1237,7 @@
   // ------------------------------------------------------------ Taslaklar
   $('#btnSave').onclick = () => {
     const tpl = tplOf(state.tplId);
-    const draft = { tur: 'ilef-studyo-taslak', surum: 3, tplId: tpl.id, layout: state.layouts[tpl.id] || 'oto', fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, data: dataOf(tpl), ov: state.ov[tpl.id] || null };
+    const draft = { tur: 'ilef-studyo-taslak', surum: 3, tplId: tpl.id, layout: state.layouts[tpl.id] || 'oto', fmtId: state.fmtId, ground: state.ground, mesh: state.mesh, motif: state.motif, badge: state.badge, unitId: state.unitId, data: dataOf(tpl), ov: state.ov[tpl.id] || null, extra: state.extra };
     download(new Blob([JSON.stringify(draft, null, 1)], { type: 'application/json' }), `taslak-${tpl.id}-${today()}.json`);
   };
   $('#fileDraft').onchange = async (e) => {
@@ -1176,6 +1251,7 @@
       state.data[d.tplId] = d.data;
       if (d.layout) state.layouts[d.tplId] = d.layout;
       if (d.ov) state.ov[d.tplId] = d.ov; else delete state.ov[d.tplId];
+      state.extra = d.extra || { logos: [], mode: 'yan' };
       selKey = null;
       refresh();
       status('Taslak açıldı.');
@@ -1183,10 +1259,18 @@
   };
   $('#btnReset').onclick = () => {
     const tpl = tplOf(state.tplId);
-    if (!ask('Bu şablondaki metinler örnek içerikle değiştirilsin mi?')) return;
+    if (!ask('Bu şablondaki metin, fotoğraf, konum ve yerleşim değişiklikleri silinip örnek tasarıma dönülsün mü?')) return;
     state.data[tpl.id] = defaults(tpl);
-    delete state.ov[tpl.id];
-    select(null); refresh();
+    delete state.ov[tpl.id]; delete state.layouts[tpl.id];
+    Object.assign(state, { ground: 'oto', mesh: 'oto', motif: 'oto', slide: 0 });
+    select(null); refresh(); scheduleThumbs();
+    status('Şablon örnek tasarıma döndü.', false, { label: 'Geri al', fn: () => go(-1) });
+  };
+  $('#btnResetAll').onclick = () => {
+    if (!ask('Tüm şablonlardaki metin, fotoğraf, konum ve yerleşim değişiklikleri silinip örnek tasarımlara dönülsün mü?')) return;
+    Object.assign(state, { data: {}, ov: {}, layouts: {}, ground: 'oto', mesh: 'oto', motif: 'oto', slide: 0, badge: false, extra: { logos: [], mode: 'yan' } });
+    select(null); refresh(); scheduleThumbs();
+    status('Tüm şablonlar örnek tasarımlara döndü.', false, { label: 'Geri al', fn: () => go(-1) });
   };
   $('#btnResetPos').onclick = () => { delete state.ov[state.tplId]; select(null); refresh(); status('Bu şablondaki tüm öğeler ilk yerine döndü.'); };
 

@@ -85,6 +85,8 @@ window.LAYOUTS = {
   tam: 'Tam kadraj fotoğraf',
   dev: 'Dev tarih kartı',
   portre: 'Yan portre',
+  bolunmus: 'Bölünmüş',
+  merkez: 'Ortalı',
   kutu: 'Kutulu',
 };
 

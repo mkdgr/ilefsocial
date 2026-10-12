@@ -66,10 +66,23 @@
     const okGround = !env.pal.red && !env.pal.photo && !env.pal.mono && !env.noBadge;
     const badge = env.badge && okGround ? brand.logos.find((l) => l.group === 'rozet' && l.light) : null;
     const main = brand.logos.filter((l) => l.group === 'ana');
-    main.forEach((l, i) => {
+    const extra = (env.extra && env.extra.logos || []).map((src) => env.getImage(src)).filter(Boolean);
+    const only = extra.length && env.extra.mode === 'yerine';
+    if (!only) main.forEach((l, i) => {
       if (badge && badge.replaces === l.id) { const w = drawLogo(ctx, env, badge, x, top - 10 * u, 84 * u); if (w) x += w + 22 * u; return; }
       const h = (i === 0 ? 64 : 56) * u; const w = drawLogo(ctx, env, l, x, top + (64 * u - h) / 2, h); if (w) x += w + 18 * u;
     });
+    // iş birliği logoları: bizimkilerin yanında ince çizgiyle ayrılır ya da yerlerine geçer
+    if (extra.length) {
+      if (!only) { x += 6 * u; ctx.fillStyle = env.pal.grey; ctx.globalAlpha *= 0.5; ctx.fillRect(x, top + 4 * u, 2 * u, 56 * u); ctx.globalAlpha /= 0.5; x += 26 * u; }
+      extra.forEach((im) => {
+        const iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height; if (!iw || !ih) return;
+        const h = 56 * u, sc = Math.min(h / ih, (220 * u) / iw), w = iw * sc;
+        if (env.pal.mono) ctx.filter = 'grayscale(1) brightness(1.15)';
+        ctx.drawImage(im, x, top + (64 * u - ih * sc) / 2, w, ih * sc); ctx.filter = 'none';
+        x += w + 22 * u;
+      });
+    }
     // sağ üst: birim (logo + ad) ya da serbest üst bilgi
     const right = env.W - m - env.mr;
     const label = env.unit ? env.unit.name : env.topRight;
@@ -153,7 +166,7 @@
         // Kullanıcı düzenlemeleri (editörde sürükle/boyutlandır/renk/gizle): o = { dx, dy, s, color, hidden }
         const key = blocks[i].key, ov = key && env.ov ? env.ov[key] : null, sc = (ov && ov.s) || 1;
         const rx = box.x + ((ov && ov.dx) || 0), ry = y + ((ov && ov.dy) || 0);
-        if (env.editing !== key) {
+        if (!key || env.editing !== key) {
           ctx.save(); ctx.globalAlpha *= p; ctx.translate(0, (1 - p) * (env.calm ? 0 : 28) * u);
           if (ov) { ctx.translate(rx, ry); ctx.scale(sc, sc); ctx.translate(-box.x, -y); }
           const saved = ov && ov.color ? { fg: env.pal.fg, sub: env.pal.sub } : null;
@@ -187,8 +200,9 @@
     if (!text) return null;
     const { u, pal, brand } = env;
     const fz = 30 * u * Math.min(env.fs, 1.15);
-    return { key: o.key || env.keyOf(text), gap: o.gap, layout(ctx) { return { h: fz * 1.2, fs: fz, lh: fz * 1.2, weight: 600, catPad: fz * 1.29, tw: fz * 1.29 + (ctx ? (ctx.font = D.font(600, fz, brand.fonts.body), ctx.measureText(text).width) : 0), draw(ctx, x, y) {
+    return { key: o.key || env.keyOf(text), gap: o.gap, layout(ctx) { return { h: fz * 1.2, fs: fz, lh: fz * 1.2, weight: 600, catPad: fz * 1.29, align: env.align || undefined, tw: fz * 1.29 + (ctx ? (ctx.font = D.font(600, fz, brand.fonts.body), ctx.measureText(text).width) : 0), draw(ctx, x, y, bw) {
       const sq = fz * 0.74;
+      if (env.align === 'center' && bw) { ctx.font = D.font(600, fz, brand.fonts.body); x += (bw - (sq + fz * 0.55 + ctx.measureText(text).width)) / 2; }
       if (o.ribbon) ribbon(ctx, x + sq * 0.05, y + fz * 0.02, fz * 1.15, pal.fg);
       else { ctx.fillStyle = o.square || pal.accent; ctx.fillRect(x, y + (fz * 1.2 - sq) / 2, sq, sq); }
       ctx.fillStyle = pal.fg; ctx.font = D.font(600, fz, brand.fonts.body); ctx.textBaseline = 'middle';
@@ -214,7 +228,7 @@
       const max = (o.max || 120) * u * env.fs;
       const mh = isFinite(maxH) ? maxH : max * (o.maxLines || 3);
       const f = D.fit(ctx, text, { weight: o.weight || 600, family: brand.fonts.head, max, min: (o.min || 52) * u * Math.min(env.fs, 1.1), maxW: w * (o.wr || 1), maxH: mh, lh: o.lh || 1.0, lsEm: o.lsEm != null ? o.lsEm : -0.035, maxLines: o.maxLines });
-      return { h: f.h, tw: f.w, fs: f.size, lh: f.lh, weight: 600, ls: o.lsEm != null ? o.lsEm : -0.035, wr: o.wr || 1, align: o.align, color: colorOf(pal, o.color, pal.fg), draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x - f.size * 0.03, y, bw, o.align, colorOf(pal, o.color, pal.fg)) };
+      return { h: f.h, tw: f.w, fs: f.size, lh: f.lh, weight: 600, ls: o.lsEm != null ? o.lsEm : -0.035, wr: o.wr || 1, align: o.align || env.align, color: colorOf(pal, o.color, pal.fg), draw: (ctx, x, y, bw) => D.drawFit(ctx, f, (o.align || env.align) === 'center' ? x : x - f.size * 0.03, y, bw, o.align || env.align, colorOf(pal, o.color, pal.fg)) };
     } };
   };
 
@@ -224,7 +238,7 @@
     return { key: o.key || env.keyOf(text), gap: o.gap != null ? o.gap : 30, flex: o.flex != null ? o.flex : 1, layout(ctx, w, maxH) {
       const max = (o.max || 34) * u * env.fs;
       const f = D.fit(ctx, text, { weight: o.weight || 400, family: brand.fonts.body, max, min: (o.min || 24) * u, maxW: w * (o.wr || 0.92), maxH: isFinite(maxH) ? maxH : max * 1.4 * (o.maxLines || 4), lh: 1.38, lsEm: -0.005, maxLines: o.maxLines });
-      return { h: f.h, tw: f.w, fs: f.size, lh: f.lh, weight: o.weight || 400, ls: -0.005, wr: o.wr || 0.92, align: o.align, color: colorOf(pal, o.color, pal.sub), draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x, y, bw, o.align, colorOf(pal, o.color, pal.sub)) };
+      return { h: f.h, tw: f.w, fs: f.size, lh: f.lh, weight: o.weight || 400, ls: -0.005, wr: o.wr || 0.92, align: o.align || env.align, color: colorOf(pal, o.color, pal.sub), draw: (ctx, x, y, bw) => D.drawFit(ctx, f, x, y, bw, o.align || env.align, colorOf(pal, o.color, pal.sub)) };
     } };
   };
 
@@ -326,7 +340,8 @@
     const { u, pal, brand } = env;
     return { key: o.key || env.keyOf(dateStr), gap: o.gap != null ? o.gap : 44, layout() {
       const s = (o.size || 300) * u * Math.min(env.fs, 1.2);
-      return { h: s, draw(ctx, x, y) {
+      return { h: s, draw(ctx, x, y, bw) {
+        if (env.align === 'center' && !(side || []).filter(Boolean).length && bw) x += (bw - s) / 2;
         if (p) dateFrame(ctx, env, p, { x, y, s, ink: pal.fg, red: env.brand.colors.red, label: o.label || p.weekday, foot: p.month, footR: o.label && o.label !== p.weekday ? p.weekday : String(p.y) });
         else { ctx.fillStyle = pal.fg; ctx.font = D.font(600, s * 0.16, brand.fonts.body); ctx.textBaseline = 'middle'; ctx.fillText(String(dateStr), x, y + s / 2, s * 2); }
         ctx.textAlign = 'left';
@@ -348,8 +363,9 @@
       const f = D.fit(ctx, num, { weight: 600, family: brand.fonts.head, max: big, min: 80 * u, maxW: w, maxH: big * 1.05, lh: 1.0, lsEm: -0.05, maxLines: 1 });
       const sz = 34 * u * Math.min(env.fs, 1.15);
       return { h: f.h + (sub ? sz * 1.6 : 0), draw(ctx, x, y, bw) {
-        D.drawFit(ctx, f, x - f.size * 0.035, y, bw, 'left', pal.fg);
-        if (sub) { ctx.fillStyle = pal.sub; ctx.font = D.font(400, sz, brand.fonts.body); ctx.textBaseline = 'top'; ctx.fillText(sub, x, y + f.h + sz * 0.3, bw); ctx.textBaseline = 'alphabetic'; }
+        const c = env.align === 'center';
+        D.drawFit(ctx, f, c ? x : x - f.size * 0.035, y, bw, c ? 'center' : 'left', pal.fg);
+        if (sub) { ctx.fillStyle = pal.sub; ctx.font = D.font(400, sz, brand.fonts.body); ctx.textBaseline = 'top'; ctx.textAlign = c ? 'center' : 'left'; ctx.fillText(sub, c ? x + bw / 2 : x, y + f.h + sz * 0.3, bw); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
       } };
     } };
   };
@@ -392,10 +408,12 @@
       const q = 130 * u * Math.min(env.fs, 1.1), qh = q * 0.6;
       const max = (o.max || 74) * u * env.fs;
       const f = D.fit(ctx, text, { weight: 500, family: brand.fonts.head, max, min: 34 * u, maxW: w, maxH: (isFinite(maxH) ? maxH : max * 7) - qh, lh: 1.14, lsEm: -0.02 });
-      return { h: qh + f.h, ty: qh, tw: f.w, fs: f.size, lh: f.lh, weight: 500, ls: -0.02, wr: 1, color: pal.fg, draw(ctx, x, y, bw) {
+      return { h: qh + f.h, ty: qh, tw: f.w, fs: f.size, lh: f.lh, weight: 500, ls: -0.02, wr: 1, align: env.align || undefined, color: pal.fg, draw(ctx, x, y, bw) {
         ctx.fillStyle = pal.accent; ctx.font = D.font(600, q, brand.fonts.head); ctx.textBaseline = 'top';
-        ctx.fillText('“', x - q * 0.05, y - q * 0.1); ctx.textBaseline = 'alphabetic';
-        D.drawFit(ctx, f, x, y + qh, bw, 'left', pal.fg);
+        const c = env.align === 'center';
+        if (c) { ctx.textAlign = 'center'; ctx.fillText('“', x + bw / 2, y - q * 0.1); ctx.textAlign = 'left'; } else ctx.fillText('“', x - q * 0.05, y - q * 0.1);
+        ctx.textBaseline = 'alphabetic';
+        D.drawFit(ctx, f, x, y + qh, bw, c ? 'center' : 'left', pal.fg);
       } };
     } };
   };
@@ -610,7 +628,7 @@
     ctx.drawImage(c, x, y);
   }
   // Hazır afiş: kırpmadan, gölgeyle
-  function drawPoster(ctx, env, img, x, y, w, h, key) {
+  function drawPoster(ctx, env, img, x, y, w, h, key, style) {
     hit(env, key || 'afis', x, y, w, h);
     const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     const s = Math.min(w / iw, h / ih), pw = iw * s, ph = ih * s;
@@ -619,17 +637,28 @@
     ctx.save();
     ctx.globalAlpha *= p;
     ctx.translate(0, (1 - p) * 30 * env.u);
-    ctx.shadowColor = 'rgba(0,0,0,.16)'; ctx.shadowBlur = 60 * env.u; ctx.shadowOffsetY = 24 * env.u;
+    const book = style === 'kitap';
+    ctx.shadowColor = book ? 'rgba(0,0,0,.32)' : 'rgba(0,0,0,.16)'; ctx.shadowBlur = (book ? 70 : 60) * env.u; ctx.shadowOffsetY = (book ? 34 : 24) * env.u; ctx.shadowOffsetX = book ? 14 * env.u : 0;
     ctx.fillStyle = '#fff'; ctx.fillRect(px, py, pw, ph);
-    ctx.shadowColor = 'transparent';
+    ctx.shadowColor = 'transparent'; ctx.shadowOffsetX = 0;
     ctx.drawImage(img, px, py, pw, ph);
+    if (book) {
+      // sırt: soldaki kıvrım gölgesi ve ince ışık çizgisi, kitap hissi verir
+      const sw = pw * 0.07, g = ctx.createLinearGradient(px, 0, px + sw, 0);
+      g.addColorStop(0, 'rgba(0,0,0,.38)'); g.addColorStop(0.35, 'rgba(255,255,255,.18)'); g.addColorStop(0.55, 'rgba(0,0,0,.12)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(px, py, sw, ph);
+      const g2 = ctx.createLinearGradient(0, py, 0, py + ph); g2.addColorStop(0, 'rgba(255,255,255,.10)'); g2.addColorStop(1, 'rgba(0,0,0,.10)');
+      ctx.fillStyle = g2; ctx.fillRect(px, py, pw, ph);
+    }
     ctx.restore();
   }
 
   // ---------------------------------------------------------------- kompozisyon
   // spec: { photo:{img,fx,fy}, poster:img, top:[bloklar], bottom:[bloklar], photoShare, footL, footR, valign }
   function compose(ctx, env, spec) {
-    const lay = spec.layout;
+    const lay = spec.layout || env.layout;
+    if (lay === 'bolunmus' && spec.photo) return composeSplit(ctx, env, spec);
+    if (lay === 'merkez') return composeCenter(ctx, env, spec);
     if (lay === 'tam' && spec.photo) return composeFull(ctx, env, spec);
     if (lay === 'dev' && spec.dev && D.parseDate(spec.dev.date)) return composeDev(ctx, env, spec);
     if (lay === 'portre' && spec.photo) return composePortrait(ctx, env, spec);
@@ -645,7 +674,7 @@
       const colW = area.w * 0.46;
       const right = { x: area.x + area.w - colW, y: area.y, w: colW, h: area.h };
       if (spec.photo) drawPhoto(ctx, env, spec.photo, right.x, sigBottom + 40 * u, right.w, env.bottom - sigBottom - 40 * u);
-      else drawPoster(ctx, env, spec.poster, right.x, right.y, right.w, right.h, spec.posterKey);
+      else drawPoster(ctx, env, spec.poster, right.x, right.y, right.w, right.h, spec.posterKey, spec.posterStyle);
       stack(ctx, env, { x: area.x, y: area.y, w: area.w - colW - 80 * u, h: area.h }, blocks);
     } else if (spec.photo) {
       const share = spec.photoShare || (env.tall ? 0.44 : env.square ? 0.42 : 0.5);
@@ -658,7 +687,7 @@
       const lower = (spec.top || []).concat(spec.bottom || []);
       const lowerH = stack(ctx, env, { x: area.x, y: 0, w: area.w, h: 1e6 }, lower, { measure: true });
       const ph = area.h - lowerH - 50 * u;
-      drawPoster(ctx, env, spec.poster, area.x, area.y - 20 * u, area.w, ph, spec.posterKey);
+      drawPoster(ctx, env, spec.poster, area.x, area.y - 20 * u, area.w, ph, spec.posterKey, spec.posterStyle);
       stack(ctx, env, { x: area.x, y: area.y + ph + 30 * u, w: area.w, h: area.h - ph - 30 * u }, lower, { valign: 'bottom' });
     } else if ((env.wide || env.square) && (spec.bottom || []).some((b) => b && b.side)) {
       // yatay: metin solda, takvim gibi yan bloklar sağ sütunda
@@ -703,6 +732,43 @@
     hit(env, env.keyOf(c.date), x, y, s, s);
     dateFrame(ctx, env, p, { x, y, s, ink: '#FFFFFF', red: env.brand.colors.red, glass: true, label: p.weekday, foot: p.month, footR: String(p.y) });
     void brand;
+  }
+
+  // ---------------------------------------------------------------- yerleşim: bölünmüş (fotoğraf bir yarıda, kenardan kenara)
+  function composeSplit(ctx, env, spec) {
+    const { W, H, u, m } = env;
+    Ground.paint(ctx, env);
+    const blocks = (spec.top || []).concat([B.spacer()], spec.bottom || []);
+    if (env.wide || env.square) {
+      const pw = Math.round(W * (env.square ? 0.46 : 0.5)), px = W - pw;
+      drawPhoto(ctx, env, spec.photo, px, 0, pw, H);
+      // imza, metin ve alt bilgi sol yarıda kalır
+      const e2 = Object.assign({}, env, { W: px + m * 0.5, mr: 0 });
+      const sigBottom = signature(ctx, e2);
+      const fb = env.bottom - (spec.footL || spec.footR ? 70 : 20) * u, y0 = sigBottom + (env.square ? 60 : 80) * u;
+      stack(ctx, e2, { x: m, y: y0, w: px - m - 60 * u, h: fb - y0 }, blocks);
+      footer(ctx, e2, spec.footL, spec.footR);
+      return;
+    }
+    // dikey formatlar: fotoğraf alt bölümde kenardan kenara, yazı üstte
+    const ph = Math.round(H * (env.tall ? 0.44 : 0.46)), py = H - ph;
+    drawPhoto(ctx, env, spec.photo, 0, py, W, ph);
+    const sigBottom = signature(ctx, env);
+    const y0 = sigBottom + (env.tall ? 80 : 56) * u;
+    stack(ctx, env, { x: m, y: y0, w: W - 2 * m - env.mr, h: py - 56 * u - y0 }, blocks, { valign: 'bottom' });
+  }
+
+  // ---------------------------------------------------------------- yerleşim: ortalı (tipografik afiş)
+  function composeCenter(ctx, env, spec) {
+    const { W, u, m } = env;
+    Ground.paint(ctx, env);
+    const sigBottom = signature(ctx, env);
+    env.align = 'center';
+    const fb = env.bottom - (spec.footL || spec.footR ? 90 : 30) * u, y0 = sigBottom + 60 * u;
+    const inset = env.wide ? W * 0.12 : 0;
+    stack(ctx, env, { x: m + inset, y: y0, w: W - 2 * m - env.mr - 2 * inset, h: fb - y0 }, (spec.top || []).concat(spec.bottom || []), { valign: 'center' });
+    env.align = null;
+    footer(ctx, env, spec.footL, spec.footR);
   }
 
   // ---------------------------------------------------------------- yerleşim: dev tarih kartı
@@ -762,7 +828,7 @@
 
   T.push({
     id: 'duyuru', cat: 'duyuru', name: 'Duyuru', desc: 'Dekanlık, bölüm ve genel duyurular', mesh: 'sicak', motif: 'halka', ground: 'siyah',
-    layouts: ['kutu', 'tam'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
+    layouts: ['kutu', 'tam', 'bolunmus', 'merkez'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Duyuru', 'Önemli duyuru', 'Bilgilendirme', 'Hatırlatma', 'Dikkat'], def: 'Duyuru' },
       { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Güz yarıyılı ara sınav programı yayımlandı' },
@@ -836,7 +902,7 @@
 
   T.push({
     id: 'etkinlik', cat: 'etkinlik', name: 'Etkinlik', desc: 'Söyleşi, panel, gösterim, atölye, konferans', mesh: 'sicak',
-    layouts: ['tam', 'dev', 'kutu'], layoutOf: (d) => (d.foto ? 'tam' : 'dev'),
+    layouts: ['tam', 'dev', 'bolunmus', 'kutu'], layoutOf: (d) => (d.foto ? 'tam' : 'dev'),
     motifOf: (d) => ({ 'Film gösterimi': 'film', 'Belgesel gösterimi': 'film', 'Söyleşi': 'ses', 'Panel': 'ses', 'Konferans': 'ses', 'Seminer': 'ses', 'Atölye': 'ag', 'Çalıştay': 'ag', 'Sergi': 'film' }[d.tur] || 'halka'),
     fields: [
       { key: 'tur', label: 'Etkinlik türü', type: 'select', options: ['Söyleşi', 'Panel', 'Konferans', 'Seminer', 'Atölye', 'Çalıştay', 'Film gösterimi', 'Belgesel gösterimi', 'Sergi', 'Etkinlik'], def: 'Söyleşi' },
@@ -875,7 +941,7 @@
 
   T.push({
     id: 'haber', cat: 'haber', name: 'Haber', desc: 'Fakülteden haberler, etkinlik sonrası fotoğraflı paylaşım', mesh: 'sicak', motif: 'gazete',
-    layouts: ['tam', 'kutu'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
+    layouts: ['tam', 'bolunmus', 'kutu'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Fakültemizden', 'Haber', 'Etkinlikten', 'Proje haberi', 'Basında İLEF'], def: 'Fakültemizden' },
       { key: 'foto', label: 'Fotoğraf', type: 'image' },
@@ -896,7 +962,7 @@
 
   T.push({
     id: 'kisi', cat: 'insan', name: 'Atama / Tebrik', desc: 'Yeni görev, atama, tebrik, hoş geldiniz', mesh: 'kurumsal', motif: 'yok', ground: 'lacivert',
-    layouts: ['portre', 'kutu'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
+    layouts: ['portre', 'bolunmus', 'kutu', 'merkez'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Dekan yardımcımız', 'Yeni görev', 'Atama', 'Tebrikler', 'Hoş geldiniz', 'Emekliliğe uğurlarken'], def: 'Dekan yardımcımız' },
       { key: 'foto', label: 'Fotoğraf', type: 'image' },
@@ -917,7 +983,7 @@
 
   T.push({
     id: 'odul', cat: 'haber', name: 'Ödül / Başarı', desc: 'Büyük haber — kırmızı zemin, seyrek kullanın', mesh: 'sicak', motif: 'isik', ground: 'kirmizi',
-    layouts: ['kutu', 'tam'], layoutOf: () => 'kutu',
+    layouts: ['kutu', 'tam', 'bolunmus', 'merkez'], layoutOf: () => 'kutu',
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'text', def: 'Jüri Özel Ödülü' },
       { key: 'foto', label: 'Fotoğraf', type: 'image' },
@@ -936,7 +1002,7 @@
 
   T.push({
     id: 'vefat', cat: 'ozel', name: 'Vefat / Taziye', desc: 'Vefat, başsağlığı ve anma — siyah zemin, renksiz, hareketsiz', mesh: 'yok', motif: 'yok', mono: true, calm: true,
-    layouts: ['portre', 'kutu'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
+    layouts: ['portre', 'kutu', 'merkez'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Üst yazı', type: 'select', options: ['Vefat ve başsağlığı', 'Başsağlığı', 'Saygıyla anıyoruz', 'Anma'], def: 'Vefat ve başsağlığı' },
       { key: 'foto', label: 'Fotoğraf (siyah-beyaz gösterilir)', type: 'image' },
@@ -956,7 +1022,7 @@
 
   T.push({
     id: 'ozelgun', cat: 'ozel', name: 'Özel gün / Kutlama', desc: 'Bayramlar, anma ve kutlama günleri', mesh: 'sicak', motif: 'halka',
-    layouts: ['dev', 'tam', 'kutu'], layoutOf: (d) => (d.foto ? 'tam' : 'dev'),
+    layouts: ['dev', 'tam', 'bolunmus', 'merkez', 'kutu'], layoutOf: (d) => (d.foto ? 'tam' : 'dev'),
     fields: [
       { key: 'tarih', label: 'Gün', type: 'date', def: '2026-10-29' },
       { key: 'baslik', label: 'Mesaj', type: 'textarea', rows: 2, def: 'Cumhuriyet Bayramımız kutlu olsun' },
@@ -989,7 +1055,7 @@
   T.push({
     id: 'afis', cat: 'etkinlik', name: 'Hazır afiş', desc: 'Dışarıdan gelen afiş ya da banner — kırpmadan İLEF çerçevesiyle', mesh: 'sicak', motif: 'yok',
     fields: [
-      { key: 'afis', label: 'Afiş / banner görseli', type: 'image', hint: 'Görsel kırpılmadan yerleştirilir.' },
+      { key: 'afis', label: 'Afiş / banner görseli', type: 'image', poster: true, hint: 'Görsel kırpılmadan yerleştirilir.' },
       { key: 'etiket', label: 'Etiket', type: 'text', def: 'Etkinlik' },
       { key: 'baslik', label: 'Kısa başlık (isteğe bağlı)', type: 'text', def: '' },
       { key: 'tarih', label: 'Tarih', type: 'date', def: '2026-10-19' },
@@ -1009,7 +1075,7 @@
 
   T.push({
     id: 'karusel', cat: 'haber', name: 'Karusel', desc: 'Foto haber — kapak + fotoğraf sayfaları', mesh: 'sicak', motif: 'gazete',
-    layouts: ['tam', 'kutu'], layoutOf: (d) => (d.kapak ? 'tam' : 'kutu'),
+    layouts: ['tam', 'bolunmus', 'kutu'], layoutOf: (d) => (d.kapak ? 'tam' : 'kutu'),
     slides: (d) => 1 + (Array.isArray(d.fotolar) ? d.fotolar.length : 0),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'text', def: 'Fakültemizden' },
@@ -1037,7 +1103,8 @@
       const im = img(env, d.fotolar[s - 1]);
       const st = (env.fmt.safeTop || 0) * u, sb = (env.fmt.safeBottom || 0) * u;
       const bar = 150 * u + sb;
-      if (im) drawPhoto(ctx, env, { img: im, fx: 0.5, fy: 0.5 }, 0, st, W, H - bar - st);
+      const cfg = (Array.isArray(d.fotolar_ayar) && d.fotolar_ayar[s - 1]) || {};
+      if (im) drawPhoto(ctx, env, { img: im, fx: cfg.fx != null ? cfg.fx : 0.5, fy: cfg.fy != null ? cfg.fy : 0.5, fit: cfg.fit, z: cfg.z, key: '_sayfa' }, 0, st, W, H - bar - st);
       const cap = String(d.aciklamalar || '').split('\n')[s - 1] || d.etiket;
       const y = H - bar + 46 * u;
       stack(ctx, env, { x: m, y, w: W - 2 * m - env.mr - 220 * u, h: 60 * u }, [B.cat(env, cap)], { delay: 0.2 });
@@ -1111,6 +1178,7 @@
 
   T.push({
     id: 'gerisayim', cat: 'etkinlik', name: 'Geri sayım', desc: 'Son 3 gün, yarın, bugün — etkinlik ve başvuru hatırlatması', mesh: 'gunes', motif: 'halka', ground: 'kirmizi',
+    layouts: ['kutu', 'merkez'], layoutOf: () => 'kutu',
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'text', def: 'Geri sayım' },
       { key: 'sayi', label: 'Sayı (boşsa tarihten hesaplanır)', type: 'text', def: '3' },
@@ -1134,7 +1202,7 @@
 
   T.push({
     id: 'podcast', cat: 'etkinlik', name: 'Radyo / Podcast / Yayın', desc: 'Yeni bölüm, canlı yayın, radyo programı, YouTube', mesh: 'medya', motif: 'ses', ground: 'siyah',
-    layouts: ['kutu', 'tam'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
+    layouts: ['kutu', 'tam', 'bolunmus'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Yeni bölüm', 'Canlı yayın', 'Podcast', 'Radyo programı', 'YouTube'], def: 'Yeni bölüm' },
       { key: 'program', label: 'Program adı', type: 'textarea', rows: 2, def: 'Kampüs Gündemi' },
@@ -1163,27 +1231,35 @@
   });
 
   T.push({
-    id: 'yayin', cat: 'haber', name: 'Yayın / Kitap / Proje', desc: 'Yeni kitap, makale, dergi sayısı, proje ve rapor', mesh: 'kurumsal', motif: 'gazete',
+    id: 'yayin', cat: 'haber', name: 'Yayın / Kitap / Proje', desc: 'Yeni kitap, makale, dergi sayısı, tez, proje ve rapor — kitap kapağıyla', mesh: 'kurumsal', motif: 'gazete',
     fields: [
-      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Yeni kitap', 'Yeni makale', 'Derginin yeni sayısı', 'Proje', 'Rapor'], def: 'Yeni kitap' },
-      { key: 'kapak', label: 'Kapak görseli', type: 'image', hint: 'Kapak kırpılmadan yerleşir.' },
+      { key: 'etiket', label: 'Etiket', type: 'select', options: ['Yeni kitap', 'Yeni makale', 'Derginin yeni sayısı', 'Kitap bölümü', 'Tez', 'Proje', 'Rapor'], def: 'Yeni kitap' },
+      { key: 'kapak', label: 'Kitap / dergi kapağı', type: 'image', poster: true, hint: 'Kapak kırpılmadan, kitap gibi gölgeli yerleşir.' },
       { key: 'baslik', label: 'Başlık', type: 'textarea', rows: 2, def: 'Dijital Çağda Haber ve Doğrulama' },
       { key: 'yazar', label: 'Yazar / editör / yürütücü', type: 'text', def: 'Prof. Dr. Ad Soyad · Doç. Dr. Ad Soyad' },
-      { key: 'yayinci', label: 'Yayınevi / dergi / destek', type: 'text', def: 'Fakülte Yayınları, 2026' },
-      { key: 'link', label: 'Bağlantı', type: 'text', def: '' },
+      { key: 'ozet', label: 'Kısa tanıtım (arka kapak cümlesi)', type: 'textarea', rows: 2, def: 'Yapay zekâ çağında haber doğrulamanın yöntemleri, araçları ve etik sorunları.' },
+      { key: 'yayinci', label: 'Yayınevi / dergi / destekleyen kurum', type: 'text', def: 'Fakülte Yayınları' },
+      { key: 'yil', label: 'Yıl / sayı', type: 'text', def: '2026' },
+      { key: 'sayfa', label: 'Sayfa sayısı / süre', type: 'text', def: '248 sayfa' },
+      { key: 'kimlik', label: 'ISBN / DOI / proje no', type: 'text', def: 'ISBN 978-605-00-0000-0' },
+      { key: 'link', label: 'Nereden edinilir / bağlantı', type: 'text', def: '' },
       TOP_FIELD(''),
-    ],
+    ].concat(PARTNER_FIELDS),
     render(ctx, d, env) {
       const poster = img(env, d.kapak);
-      const top = [B.cat(env, d.etiket), B.title(env, d.baslik, { gap: 24, max: poster ? 70 : 110, maxLines: 3, flex: poster ? 0 : 2 }), B.lead(env, d.yazar, { weight: 600, color: 'fg', gap: 18, flex: 0, maxLines: 2 }), B.lead(env, d.yayinci, { color: 'grey', gap: 8, flex: 0, maxLines: 1 })];
-      if (poster) compose(ctx, env, { poster, posterKey: 'kapak', top, bottom: [], footL: d.link || env.brand.web, footR: env.brand.social });
-      else compose(ctx, env, { top, bottom: [], footL: d.link || env.brand.web, footR: env.brand.social });
+      const facts = B.facts(env, [{ k: 'Yayınevi', v: d.yayinci }, { k: 'Yıl', v: d.yil }, { k: 'Sayfa', v: d.sayfa }, { k: 'ISBN / DOI', v: env.tall || env.wide ? d.kimlik : '' }], { gap: 28 });
+      const top = [B.cat(env, d.etiket), B.title(env, d.baslik, { gap: 22, max: poster ? 66 : 110, maxLines: 3, flex: poster ? 0 : 2 }),
+        B.lead(env, d.yazar, { weight: 600, color: 'fg', gap: 14, flex: 0, maxLines: 2 }), B.lead(env, d.ozet, { gap: 14, flex: 0, maxLines: poster ? 2 : 3 })];
+      const bottom = [B.partners(env, partnersOf(env, d), d.ortakEtiket), facts];
+      const foot = { footL: d.link || env.brand.web, footR: env.brand.social };
+      if (poster) compose(ctx, env, Object.assign({ poster, posterKey: 'kapak', posterStyle: 'kitap', top, bottom }, foot));
+      else compose(ctx, env, Object.assign({ top, bottom }, foot));
     },
   });
 
   T.push({
     id: 'alinti', cat: 'insan', name: 'Söz / Alıntı', desc: 'Konuktan, mezundan, öğrenciden bir cümle', mesh: 'sicak', motif: 'yok', ground: 'beyaz',
-    layouts: ['kutu', 'portre', 'tam'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
+    layouts: ['kutu', 'portre', 'tam', 'bolunmus', 'merkez'], layoutOf: (d) => (d.foto ? 'portre' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Mezunlarımızdan', 'Öğrencilerimizden', 'Hocamızdan', 'Konuğumuzdan', 'Söyleşiden'], def: 'Mezunlarımızdan' },
       { key: 'soz', label: 'Söz', type: 'textarea', rows: 3, def: 'Fakültede öğrendiğim en önemli şey, iyi bir hikâyenin doğru sorudan doğduğuydu.' },
@@ -1221,6 +1297,7 @@
 
   T.push({
     id: 'anket', cat: 'bilgi', name: 'Soru / Anket', desc: 'Story etkileşimi: soru, anket, bilgi yarışması', mesh: 'medya', motif: 'halka',
+    layouts: ['kutu', 'merkez'], layoutOf: () => 'kutu',
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Sizce?', 'Soru-cevap', 'Anket', 'Bilgi yarışması'], def: 'Sizce?' },
       { key: 'soru', label: 'Soru', type: 'textarea', rows: 2, def: 'Bir haberin doğru olduğunu nasıl anlarsınız?' },
@@ -1238,7 +1315,7 @@
 
   T.push({
     id: 'tanitim', cat: 'bilgi', name: 'Tanıtım / Tercih', desc: 'Bölüm ve program tanıtımı, tercih dönemi', mesh: 'kurumsal', motif: 'halka', ground: 'lacivert',
-    layouts: ['kutu', 'tam'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
+    layouts: ['kutu', 'tam', 'bolunmus', 'merkez'], layoutOf: (d) => (d.foto ? 'tam' : 'kutu'),
     fields: [
       { key: 'etiket', label: 'Etiket', type: 'select', options: ['Tercih dönemi', 'Bölümümüzü tanıyın', 'Programımızı tanıyın', 'Yeni program'], def: 'Tercih dönemi' },
       { key: 'baslik', label: 'Bölüm / program', type: 'textarea', rows: 2, def: 'Yeni Medya ve İletişim' },
@@ -1286,7 +1363,7 @@
         fs: H / W > 1.5 ? 1.16 : W / H > 1.3 ? 0.92 : Math.abs(W - H) < 10 ? 0.9 : 1,
         m: (W > H ? 96 : 88) * u, mr: (fmt.safeRight || 0) * u,
         top: (fmt.safeTop || 80) * u, bottom: H - (fmt.safeBottom || 72) * u,
-        noBadge: !!tpl.mono, getImage, data, ctx, hits: o.hits || null, ov: o.ov || null, editing: o.editing || null,
+        noBadge: !!tpl.mono, extra: o.extra || null, getImage, data, ctx, hits: o.hits || null, ov: o.ov || null, editing: o.editing || null,
         // Çizilen metnin hangi alandan geldiğini bulur (boşluk ve · farkları yok sayılır)
         keyOf(v) {
           if (v == null || v === '') return null;

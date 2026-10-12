@@ -19,7 +19,8 @@
           <button type="button" id="btnSave"><i>⤓</i>Taslağı kaydet <small>.json</small></button>
           <label class="btnlike"><i>⤒</i>Taslak aç<input type="file" id="fileDraft" accept=".json,application/json" hidden /></label>
           <hr />
-          <button type="button" id="btnReset"><i>↺</i>Örnek içeriğe dön</button>
+          <button type="button" id="btnReset"><i>↺</i>Bu şablonu sıfırla <small>örnek tasarım</small></button>
+          <button type="button" id="btnResetAll"><i>⟲</i>Tüm şablonları sıfırla</button>
           <button type="button" id="btnResetPos"><i>⌖</i>Tüm konumları sıfırla</button>
           <hr />
           <button type="button" id="btnBrand"><i>◐</i>Kurum &amp; marka</button>
@@ -107,6 +108,14 @@
         <h2>Bölüm / atölye</h2>
         <p class="note">Seçilen birimin logosu ve adı sağ üstte görünür, konu motifi kendiliğinden gelir.</p>
         <div id="unitGrid" class="unit-grid"></div>
+        <h3 class="mt">İş birliği / ortak logolar</h3>
+        <p class="note">Ortak etkinlik ve projelerde kurum logoları üst şeride eklenir. SVG ya da şeffaf PNG önerilir.</p>
+        <div class="seg2" role="group" aria-label="Logo kullanımı" id="extraMode">
+          <button type="button" data-m="yan">Yanına ekle <small>bizim logolarla birlikte</small></button>
+          <button type="button" data-m="yerine">Yerine kullan <small>yalnızca ortak logolar</small></button>
+        </div>
+        <div id="extraList" class="extra-list"></div>
+        <label class="btnlike block">＋ Logo ekle<input type="file" id="fileExtra" accept=".svg,image/svg+xml,image/png,image/webp,image/jpeg" multiple hidden /></label>
       </section>
       <section data-p="paylas" hidden>
         <h2>Yayın</h2>

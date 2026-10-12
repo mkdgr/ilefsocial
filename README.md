@@ -51,6 +51,11 @@ Canva’ya benzer bir çalışma düzeni:
 - **Yerleşim:** “Yerleşim” düğmesi (ya da Tasarım paneli) her seçeneği o anki içerikle küçük önizleme olarak gösterir; fotoğraf eklenince öneriler kendiliğinden açılır. Fotoğraf gerektiren yerleşimler fotoğraf yokken soluk görünür.
 - **Yüklemeler:** “Dosya yükle” ya da fotoğrafı doğrudan tuvale sürükleyip bırakın; bırakılan fotoğraf alanına yerleşir. Karuselde alttaki **+** yeni sayfa ekler.
 - **Alt şerit:** sayfa küçük resimleri, yakınlaştırma (Ctrl + tekerlek, Ctrl + / Ctrl − / Ctrl 0).
+- **Yerleşimler:** Tam kadraj fotoğraf · Dev tarih kartı · Yan portre · **Bölünmüş** (fotoğraf bir yarıda kenardan kenara) · **Ortalı** (tipografik afiş) · Kutulu — şablona göre.
+- **Karusel:** alttaki **+** ile birden çok fotoğraf sayfa olarak eklenir. Sayfa fotoğrafına dokunun: *Doldur / Sığdır*, yakınlaştırma, sürükleyerek kadraj, *Tüm sayfalara uygula*, ◀ ▶ ile sıralama, *Sayfayı sil*. Hiçbir şey seçili değilken araç çubuğundaki “Fotoğraf sayfaları: Doldur / Sığdır” hepsini birden ayarlar.
+- **Yayın / Kitap:** kapak kırpılmadan, sırt gölgesiyle kitap gibi yerleşir; yazar, kısa tanıtım, yayınevi, yıl, sayfa, ISBN/DOI ve iş birliği logoları.
+- **İş birliği logoları (Birim paneli):** ortak kurum logoları üst şeride *yanına eklenir* ya da *yerine kullanılır*.
+- **Sıfırlama (Dosya menüsü):** *Bu şablonu sıfırla* ya da *Tüm şablonları sıfırla* — metin, fotoğraf, konum ve yerleşim örnek tasarıma döner (Geri al ile geri alınabilir).
 - **Logo ve alt bilgi şeritleri:** topluca seçilip sürüklenir (silinemez). Story/Reels’te *Alta in* / *Üste çık* kısayolu vardır; seçiliyken platform arayüzünün kapattığı alanlar kırmızıyla gösterilir.
 - **Kısayollar:** Ctrl+Z / Ctrl+Shift+Z, Delete (sil), Enter (düzenle), ok tuşları (Shift ile 10 px), Esc.
 - **Kimlik koruması:** yazı tipi her zaman Instrument Sans, renkler yalnızca marka paletinden; konum ve ölçek her formatta ayrı, renk ve silme tüm formatlarda ortak tutulur.
