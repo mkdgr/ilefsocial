@@ -465,7 +465,7 @@
     const body = $('#ieBody');
     body.innerHTML = '';
     if (f.type === 'image') {
-      body.innerHTML = `${d[key] ? `<img class="thumb" src="${d[key]}" alt="" />` : ''}
+      body.innerHTML = `${d[key] ? `<img class="thumb" src="${esc(d[key])}" alt="" />` : ''}
         <div class="row"><button type="button" data-pick>${d[key] ? 'Fotoğrafı değiştir' : 'Fotoğraf seç'}</button>${d[key] ? '<button type="button" class="link" data-rm>Kaldır</button>' : ''}</div>
         ${d[key] && (key + '_fx') in d ? `<div class="row seg2" role="group" aria-label="Yerleştirme"><button type="button" data-fit="cover" aria-pressed="${d[key + '_fit'] !== 'contain'}">Doldur <small>kırparak kaplar</small></button><button type="button" data-fit="contain" aria-pressed="${d[key + '_fit'] === 'contain'}">Sığdır <small>tamamı görünür</small></button></div>
           <div class="row">Yakınlaştır <input type="range" min="1" max="3" step="0.01" value="${d[key + '_z'] || 1}" data-k="${key}_z" /></div>
@@ -905,7 +905,7 @@
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'qb' + (has ? '' : ' empty');
       const n = Array.isArray(d[f.key]) ? d[f.key].length : 0;
-      b.innerHTML = `${f.type === 'image' && has ? `<img src="${d[f.key]}" alt="" />` : `<span class="ph">${has ? '▦' : '+'}</span>`}<span>${esc(shortLabel(f))}${n ? ` (${n})` : ''}<small>${f.type === 'image' ? (has ? 'Değiştirmek için tıklayın' : 'Fotoğraf seçin') : f.type === 'images' ? 'Sayfa ekle / düzenle' : 'Logo ekle / düzenle'}</small></span>`;
+      b.innerHTML = `${f.type === 'image' && has ? `<img src="${esc(d[f.key])}" alt="" />` : `<span class="ph">${has ? '▦' : '+'}</span>`}<span>${esc(shortLabel(f))}${n ? ` (${n})` : ''}<small>${f.type === 'image' ? (has ? 'Değiştirmek için tıklayın' : 'Fotoğraf seçin') : f.type === 'images' ? 'Sayfa ekle / düzenle' : 'Logo ekle / düzenle'}</small></span>`;
       b.onclick = () => {
         if (f.type === 'image') pickPhoto(f.key);
         else { openPanel('metin'); const lab = [...document.querySelectorAll('#fields .imgfield > span')].find((sp) => sp.textContent === f.label); if (lab) lab.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -1029,7 +1029,7 @@
     const ex = state.extra;
     $('#extraMode').querySelectorAll('[data-m]').forEach((b) => { b.setAttribute('aria-pressed', ex.mode === b.dataset.m); b.onclick = () => { ex.mode = b.dataset.m; saveState(); buildExtra(); scheduleRender(); }; });
     const el = $('#extraList');
-    el.innerHTML = ex.logos.map((src, i) => `<span class="mini"><img src="${src}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('');
+    el.innerHTML = ex.logos.map((src, i) => `<span class="mini"><img src="${esc(src)}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('');
     el.querySelectorAll('[data-i]').forEach((b) => { b.onclick = () => { ex.logos.splice(+b.dataset.i, 1); saveState(); buildExtra(); scheduleRender(); }; });
   }
   $('#fileExtra').onchange = async (e) => {
@@ -1427,7 +1427,7 @@
     cl.innerHTML = '';
     Object.keys(brand.colors).forEach((k) => {
       const lab = document.createElement('label');
-      lab.innerHTML = `<input type="color" value="${brand.colors[k]}" /> ${COLOR_LABELS[k] || k}`;
+      lab.innerHTML = `<input type="color" value="${esc(brand.colors[k])}" /> ${COLOR_LABELS[k] || k}`;
       lab.querySelector('input').oninput = (e) => { brand.colors[k] = e.target.value; scheduleRender(); };
       cl.appendChild(lab);
     });
