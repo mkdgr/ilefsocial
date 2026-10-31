@@ -465,7 +465,7 @@
     const body = $('#ieBody');
     body.innerHTML = '';
     if (f.type === 'image') {
-      body.innerHTML = `${d[key] ? `<img class="thumb" src="${d[key]}" alt="" />` : ''}
+      body.innerHTML = `${d[key] ? `<img class="thumb" src="${esc(d[key])}" alt="" />` : ''}
         <div class="row"><button type="button" data-pick>${d[key] ? 'Fotoğrafı değiştir' : 'Fotoğraf seç'}</button>${d[key] ? '<button type="button" class="link" data-rm>Kaldır</button>' : ''}</div>
         ${d[key] && (key + '_fx') in d ? `<div class="row seg2" role="group" aria-label="Yerleştirme"><button type="button" data-fit="cover" aria-pressed="${d[key + '_fit'] !== 'contain'}">Doldur <small>kırparak kaplar</small></button><button type="button" data-fit="contain" aria-pressed="${d[key + '_fit'] === 'contain'}">Sığdır <small>tamamı görünür</small></button></div>
           <div class="row">Yakınlaştır <input type="range" min="1" max="3" step="0.01" value="${d[key + '_z'] || 1}" data-k="${key}_z" /></div>
@@ -905,7 +905,7 @@
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'qb' + (has ? '' : ' empty');
       const n = Array.isArray(d[f.key]) ? d[f.key].length : 0;
-      b.innerHTML = `${f.type === 'image' && has ? `<img src="${d[f.key]}" alt="" />` : `<span class="ph">${has ? '▦' : '+'}</span>`}<span>${esc(shortLabel(f))}${n ? ` (${n})` : ''}<small>${f.type === 'image' ? (has ? 'Değiştirmek için tıklayın' : 'Fotoğraf seçin') : f.type === 'images' ? 'Sayfa ekle / düzenle' : 'Logo ekle / düzenle'}</small></span>`;
+      b.innerHTML = `${f.type === 'image' && has ? `<img src="${esc(d[f.key])}" alt="" />` : `<span class="ph">${has ? '▦' : '+'}</span>`}<span>${esc(shortLabel(f))}${n ? ` (${n})` : ''}<small>${f.type === 'image' ? (has ? 'Değiştirmek için tıklayın' : 'Fotoğraf seçin') : f.type === 'images' ? 'Sayfa ekle / düzenle' : 'Logo ekle / düzenle'}</small></span>`;
       b.onclick = () => {
         if (f.type === 'image') pickPhoto(f.key);
         else { openPanel('metin'); const lab = [...document.querySelectorAll('#fields .imgfield > span')].find((sp) => sp.textContent === f.label); if (lab) lab.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -1029,7 +1029,7 @@
     const ex = state.extra;
     $('#extraMode').querySelectorAll('[data-m]').forEach((b) => { b.setAttribute('aria-pressed', ex.mode === b.dataset.m); b.onclick = () => { ex.mode = b.dataset.m; saveState(); buildExtra(); scheduleRender(); }; });
     const el = $('#extraList');
-    el.innerHTML = ex.logos.map((src, i) => `<span class="mini"><img src="${src}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('');
+    el.innerHTML = ex.logos.map((src, i) => `<span class="mini"><img src="${esc(src)}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('');
     el.querySelectorAll('[data-i]').forEach((b) => { b.onclick = () => { ex.logos.splice(+b.dataset.i, 1); saveState(); buildExtra(); scheduleRender(); }; });
   }
   $('#fileExtra').onchange = async (e) => {
@@ -1067,7 +1067,7 @@
         lab.className = 'imgfield';
         lab.innerHTML = `<span>${esc(f.label)}</span>
           <div class="row"><input type="file" accept="image/*" />${d[f.key] ? '<button type="button" class="link" data-act="rm">Kaldır</button>' : ''}</div>
-          ${d[f.key] ? `<div class="row"><img src="${d[f.key]}" alt="" /><small>Odak</small>
+          ${d[f.key] ? `<div class="row"><img src="${esc(d[f.key])}" alt="" /><small>Odak</small>
             <input type="range" min="0" max="1" step="0.01" value="${d[f.key + '_fx']}" data-k="${f.key}_fx" title="Yatay odak" />
             <input type="range" min="0" max="1" step="0.01" value="${d[f.key + '_fy']}" data-k="${f.key}_fy" title="Dikey odak" /></div>` : `<small>${f.hint ? esc(f.hint) + ' ' : 'Fotoğraf yüklenmezse şablon yazı ağırlıklı düzene geçer. '}İpucu: insan yüzü içeren fotoğraflar daha çok etkileşim alır.</small>`}`;
         lab.querySelector('input[type=file]').onchange = async (e) => {
@@ -1083,7 +1083,7 @@
         const arr = Array.isArray(d[f.key]) ? d[f.key] : (d[f.key] = []);
         lab.className = 'imgfield';
         lab.innerHTML = `<span>${esc(f.label)}</span>
-          <div class="row logos-row">${arr.map((src, i) => `<span class="mini"><img src="${src}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('')}</div>
+          <div class="row logos-row">${arr.map((src, i) => `<span class="mini"><img src="${esc(src)}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('')}</div>
           ${arr.length < 4 ? '<input type="file" accept=".svg,image/svg+xml,image/png,image/webp,image/jpeg" multiple />' : ''}
           <small>SVG ya da şeffaf PNG önerilir.</small>`;
         const fi = lab.querySelector('input[type=file]');
@@ -1098,7 +1098,7 @@
         const arr = Array.isArray(d[f.key]) ? d[f.key] : (d[f.key] = []);
         lab.className = 'imgfield';
         lab.innerHTML = `<span>${esc(f.label)}</span>
-          <div class="row logos-row">${arr.map((src, i) => `<span class="mini"><img src="${src}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('')}</div>
+          <div class="row logos-row">${arr.map((src, i) => `<span class="mini"><img src="${esc(src)}" alt="" /><button type="button" class="link" data-i="${i}" aria-label="Kaldır">✕</button></span>`).join('')}</div>
           ${arr.length < 9 ? '<input type="file" accept="image/*" multiple />' : ''}
           <small>Her fotoğraf karuselde ayrı bir sayfa olur. Sıra yükleme sırasıdır.</small>`;
         const fi = lab.querySelector('input[type=file]');
@@ -1391,7 +1391,7 @@
       const slot = (kind, title) => {
         const src = l[kind];
         const real = src ? (window.LOGO_DATA && window.LOGO_DATA[src]) || src : null;
-        return `<label class="slot">${title}<span class="thumb ${kind}">${real ? `<img src="${real}" alt="" />` : '<em>+ yükle</em>'}</span>
+        return `<label class="slot">${title}<span class="thumb ${kind}">${real ? `<img src="${esc(real)}" alt="" />` : '<em>+ yükle</em>'}</span>
           <input type="file" accept=".svg,image/svg+xml,image/png,image/webp,.ai" data-kind="${kind}" hidden /></label>`;
       };
       row.innerHTML = `<div class="name"><input value="${esc(l.name)}" aria-label="Ad" /><small>${GROUP_NAMES[l.group] || l.group}${l.panel ? ' · koyu zeminde beyaz plaka' : ''}</small></div>
@@ -1427,7 +1427,7 @@
     cl.innerHTML = '';
     Object.keys(brand.colors).forEach((k) => {
       const lab = document.createElement('label');
-      lab.innerHTML = `<input type="color" value="${brand.colors[k]}" /> ${COLOR_LABELS[k] || k}`;
+      lab.innerHTML = `<input type="color" value="${esc(brand.colors[k])}" /> ${COLOR_LABELS[k] || k}`;
       lab.querySelector('input').oninput = (e) => { brand.colors[k] = e.target.value; scheduleRender(); };
       cl.appendChild(lab);
     });
@@ -1541,7 +1541,7 @@
       try { const c = document.createElement('canvas'); renderTo(c, fmtOf('post45'), Infinity); now = gridThumb(c); } catch (e) { now = ''; }
       const cells = [now].concat(gridItems).slice(0, 9);
       while (cells.length < 9) cells.push('');
-      $('#igGrid').innerHTML = cells.map((src, i) => `<div class="${i ? '' : 'now'}" style="${src ? `background-image:url(${src})` : ''}"></div>`).join('');
+      $('#igGrid').innerHTML = cells.map((src, i) => `<div class="${i ? '' : 'now'}" style="${src ? `background-image:url(${esc(src)})` : ''}"></div>`).join('');
     }, 250);
   }
   function saveGrid() { gridItems = gridItems.slice(0, 8); if (!ls.set(GRID_KEY, gridItems)) { gridItems = gridItems.slice(0, 4); ls.set(GRID_KEY, gridItems); } drawGrid(); }
